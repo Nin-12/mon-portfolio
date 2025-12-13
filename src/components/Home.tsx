@@ -1,8 +1,8 @@
 import React from 'react';
 import Hero from '../components/Hero';
-import About from './about.tsx';
-import ProjectGrid from '../components/ProjectGrid.tsx';
-import { useStorage } from '../hooks/useStorage.ts';
+import About from '../components/About';
+import ProjectGrid from '../components/ProjectGrid';
+import { useStorage } from '../hooks/useStorage';
 
 const Home: React.FC = () => {
   const { projects } = useStorage();

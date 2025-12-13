@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import Sidebar from './Sidebar.tsx';
+import Sidebar from './Sidebar';
 
 const Header: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
