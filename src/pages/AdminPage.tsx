@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import AdminPanel from "../components/AdminPanel";
-import { login } from "../utils/auth";
 import { supabase } from "../utils/supabase";
 import { Lock, User } from "lucide-react";
+import { login } from "../utils/auth";
 
 const AdminPage: React.FC = () => {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -17,10 +17,13 @@ const AdminPage: React.FC = () => {
   }, []);
 
   const handleLogin = async () => {
-    const ok = await login(email, password);
-    if (ok) setAuthenticated(true);
-    else alert("Identifiants incorrects");
-  };
+  const ok = await login(email, password); // utilise login() importé
+  if (ok) setAuthenticated(true);
+  else {
+    alert("Identifiants incorrects");
+    setAuthenticated(false);
+  }
+};
 
   //Loading pendant vérification session
   if (authenticated === null) {
