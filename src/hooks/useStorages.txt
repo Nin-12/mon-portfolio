@@ -1,0 +1,926 @@
+Comment faire le deploiement sur vercel et pout github : Paramètres configuré dans supabase
+
+-- Activer l'extension pour uuid_generate_v4()
+create extension if not exists "uuid-ossp";
+
+-- Création de la table projects
+create table if not exists projects (
+    id uuid primary key default uuid_generate_v4(),
+    title text not null,
+    description text,
+    category text,
+    thumbnail text,
+    images text[] not null default '{}',
+    pdf text,
+    created_at timestamp with time zone default now()
+);
+
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public read projects"
+ON projects
+FOR SELECT
+USING (true);
+
+CREATE POLICY "Admin insert projects"
+ON projects
+FOR INSERT
+WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Admin update projects"
+ON projects
+FOR UPDATE
+USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Admin delete projects"
+ON projects
+FOR DELETE
+USING (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Admin insert projects" ON projects;
+DROP POLICY IF EXISTS "Admin update projects" ON projects;
+DROP POLICY IF EXISTS "Admin delete projects" ON projects;
+
+CREATE POLICY "Admin insert projects"
+ON projects
+FOR INSERT
+WITH CHECK (auth.email() = 'lightning@folio.com');
+
+CREATE POLICY "Admin update projects"
+ON projects
+FOR UPDATE
+USING (auth.email() = 'lightning@folio.com');
+
+CREATE POLICY "Admin delete projects"
+ON projects
+FOR DELETE
+USING (auth.email() = 'lightning@folio.com');
+
+Arborescence du projets avec modification des fichiers pour supabase:
+
+
+ |─ public/
+ │    ├─ assets/
+ |    ├─ images/
+ │          ├─ PI.jpg
+ |
+ |    ├─ pdfs
+src/
+ ├─ components/
+ │    ├─ Header.tsx
+ │    ├─ Sidebar.tsx
+ │    ├─ ProjectCard.tsx
+ │    ├─ ProjectGrid.tsx
+ │    ├─ Hero.tsx
+ │    ├─ About.tsx
+ │    ├─ AdminPanel.tsx Seul l'admin après authentification peut modifier le CRUD
+ │    ├─ Home.tsx
+ │    └─ Footer.tsx
+ ├─ pages/
+ │    ├─ Projects.tsx
+ │    ├─ AboutPage.tsx
+ │    └─ AdminPage.tsx
+ |─ utils/
+ │    ├─ auth.ts
+ |    ├─ supabase.ts
+ │    ├─ idb.ts (Supprimer)
+ |─ hooks/
+ │    ├─ useStorage.ts
+ │    ├─ useUpload.ts 
+ ├─ data/
+ │    └─ projects.ts
+ |─ assets/
+ │    ├─ react.svg
+ |   
+ ├─ App.tsx
+ ├─ main.tsx
+ |─ .env
+ └─ index.css (avec Tailwind)
+ -----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans components : About.tsx
+import React from 'react';
+
+const About: React.FC = () => {
+  return (
+    <section
+      id="about"
+      className="container mx-auto p-6 flex flex-col md:flex-row items-start gap-10"
+    >
+      {/* Avatar */}
+      <img
+        src="/assets/PI.jpg"
+        alt="Avatar"
+        className="w-40 h-40 rounded-full border-4 border-[var(--glass)] object-cover"
+      />
+
+      {/* Texte */}
+      <div className="flex-1">
+        <h2 className="text-3xl font-bold mb-4">À propos de moi</h2>
+
+        <p className="mb-2">
+          Passionné par la cybersécurité et la protection des infrastructures
+          informatiques, je me spécialise dans l’administration, l’analyse et la
+          sécurisation des environnements Linux & Windows. Curieux et autonome,
+          j’aime concevoir des architectures virtuelles, auditer les réseaux et
+          renforcer la résilience des systèmes face aux menaces.
+        </p>
+
+        <h3 className="text-xl font-semibold mt-6 mb-4">Compétences par domaines</h3>
+
+        {/* GRID DES CARTES */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* Réseaux */}
+          <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
+            <h4 className="font-semibold text-lg mb-2">Administration Réseaux</h4>
+            <p className="text-sm">
+              TCP/IP, VLAN, Firewall, routage, audit réseau, analyse & surveillance
+              (Wireshark).
+            </p>
+          </div>
+
+          {/* Systèmes */}
+          <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
+            <h4 className="font-semibold text-lg mb-2">Administration Systèmes</h4>
+            <p className="text-sm">
+              Linux (Debian, Ubuntu, Kali), Windows Server, Active Directory,
+              gestion utilisateurs, durcissement systèmes.
+            </p>
+          </div>
+
+          {/* Cybersécurité */}
+          <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
+            <h4 className="font-semibold text-lg mb-2">Cybersécurité</h4>
+            <p className="text-sm">
+              Gestion des vulnérabilités, tests d’intrusion basiques, sécurité
+              d’infrastructures, virtualisation (VMware, VirtualBox).
+            </p>
+          </div>
+
+          {/* Programmation */}
+          <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
+            <h4 className="font-semibold text-lg mb-2">Programmation & Scripts</h4>
+            <p className="text-sm">
+              Python, Bash, PowerShell, automatisation, outils internes.
+            </p>
+          </div>
+
+          {/* Développement Web */}
+          <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
+            <h4 className="font-semibold text-lg mb-2">Développement Web</h4>
+            <p className="text-sm">
+              HTML, CSS, JavaScript, React, TypeScript, Tailwind, UI/UX, responsive.
+            </p>
+          </div>
+
+          {/* Outils */}
+          <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
+            <h4 className="font-semibold text-lg mb-2">Outils & Gestion</h4>
+            <p className="text-sm">
+              Git, GitHub, GitLab, CI/CD basique, documentation technique.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default About;
+ -----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans components  : AdminPanel.tsx
+ import { logout } from '../utils/auth';
+import React, { useState } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
+import { useStorage } from '../hooks/useStorage';
+import { useEffect } from 'react';
+import { supabase } from '../utils/supabase';
+
+
+const AdminPanel: React.FC = () => {
+  useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    if (!data.user) {
+      window.location.href = '/';
+    }
+  });
+}, []);
+
+  const { projects, saveProject, deleteProject, uploadFile } = useStorage();
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('');
+  const [description, setDescription] = useState('');
+  const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [images, setImages] = useState<File[]>([]);
+  const [pdf, setPdf] = useState<File | null>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!title || !category) {
+      alert('Titre et catégorie obligatoires');
+      return;
+    }
+
+    const thumbnailUrl = thumbnail
+      ? await uploadFile(thumbnail)
+      : undefined;
+
+    const imagesUrls: string[] = [];
+    for (const img of images) {
+      imagesUrls.push(await uploadFile(img));
+    }
+
+    const pdfUrl = pdf ? await uploadFile(pdf) : undefined;
+
+    // ⚠️ IMPORTANT : on n’utilise PAS le type Project complet
+    await saveProject({
+      title,
+      category,
+      description,
+      thumbnail: thumbnailUrl,
+      images: imagesUrls,
+      pdf: pdfUrl,
+    });
+
+    alert('Projet ajouté !');
+
+    // Reset form
+    setTitle('');
+    setCategory('');
+    setDescription('');
+    setThumbnail(null);
+    setImages([]);
+    setPdf(null);
+  };
+
+  return (
+    <section className="p-6">
+      <h2 className="text-2xl font-bold mb-4">
+        Admin Panel - Ajouter un projet
+      </h2>
+
+      <button
+          onClick={async () => {
+            await logout();
+            window.location.href = '/';
+          }}
+          className="mb-4 px-4 py-2 rounded bg-red-500 text-white font-bold hover:bg-red-600 transition"
+        >
+          Se déconnecter
+      </button>
+
+      <form className="flex flex-col gap-3 mb-6" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          placeholder="Titre"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
+        />
+
+        <input
+          type="text"
+          placeholder="Catégorie"
+          value={category}
+          onChange={e => setCategory(e.target.value)}
+          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
+        />
+
+        <textarea
+          placeholder="Description"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
+        />
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            e.target.files && setThumbnail(e.target.files[0])
+          }
+        />
+
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            e.target.files && setImages(Array.from(e.target.files))
+          }
+        />
+
+        <input
+          type="file"
+          accept="application/pdf"
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            e.target.files && setPdf(e.target.files[0])
+          }
+        />
+
+        <button
+          type="submit"
+          className="bg-[var(--accent)] px-4 py-2 rounded text-[#061019] font-bold hover:bg-yellow-500 transition"
+        >
+          Ajouter
+        </button>
+      </form>
+
+      <h3 className="text-xl font-bold mb-2">Projets existants</h3>
+      <ul className="space-y-2">
+        {projects.map(p => (
+          <li
+            key={p.id}
+            className="flex justify-between items-center p-2 bg-[var(--card)] rounded"
+          >
+            <span>{p.title}</span>
+            <button
+              className="text-red-500"
+              onClick={() => deleteProject(p.id)}
+            >
+              Supprimer
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+};
+
+export default AdminPanel;
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans components : Footer.tsx
+
+ import React from 'react';
+
+const Footer: React.FC = () => {
+  return (
+    <footer className="bg-[var(--card)] text-[var(--muted)] py-4 text-center mt-8 rounded-t-xl">
+      <p>&copy; {new Date().getFullYear()} MyPortfolio. Tous droits réservés.</p>
+      <div className="flex justify-center gap-4 mt-2">
+        <a href="https://github.com" target="_blank" className="hover:text-white transition">GitHub</a>
+        <a href="https://linkedin.com" target="_blank" className="hover:text-white transition">LinkedIn</a>
+        <a href="mailto:email@example.com" className="hover:text-white transition">Email</a>
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans components : Hero.tsx
+
+ import React from 'react';
+
+const Hero: React.FC = () => {
+  return (
+    <section className="relative flex flex-col items-center justify-center text-center py-20 bg-gradient-to-b from-[#071026] to-[#081423] text-white">
+      <div className="max-w-3xl">
+        <h1 className="text-4xl md:text-6xl font-extrabold mb-4 drop-shadow-lg">
+          PORTFOLIO WEBMASTER | WEBDESIGNER
+        </h1>
+        <p className="text-lg md:text-2xl mb-8 drop-shadow-md">
+          Création de sites modernes et interactifs
+        </p>
+        <a href="#projects" className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-3 rounded-lg shadow-lg hover:bg-yellow-500 transition">
+          Voir mes projets
+        </a>
+      </div>
+    </section>
+  );
+};
+
+export default Hero;
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans components : Home.tsx
+import React from 'react';
+import Hero from '../components/Hero';
+import about from '../components/about.tsx';
+import ProjectGrid from '../components/ProjectGrid.tsx';
+import { useStorage } from '../hooks/useStorage.ts';
+
+const Home: React.FC = () => {
+  const { projects } = useStorage();
+  const preview = projects.slice(0, 6);
+
+
+  return (
+    <div className="container mx-auto p-4">
+      <Hero />
+      <About />
+      <h2 className="text-2xl font-bold mt-8 mb-4">Projets récents</h2>
+      <ProjectGrid projects={preview} />
+    </div>
+  );
+};
+
+export default Home;
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans components : ProjectCard.tsx
+
+ import React, { useState } from 'react';
+import type { Project } from '../data/projects';
+
+
+interface ProjectCardProps {
+  project: Project;
+}
+
+const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
+  const [flipped, setFlipped] = useState(false);
+
+  const handleClick = () => setFlipped(!flipped);
+
+  return (
+    <div
+      className="w-full perspective cursor-pointer"
+      onClick={handleClick}
+    >
+      <div className={`relative w-full h-80 transition-transform duration-500 transform-style-preserve-3d ${flipped ? 'rotate-y-180' : ''}`}>
+        {/* Front */}
+        <div className="absolute w-full h-full backface-hidden bg-[var(--card)] rounded-xl p-4 flex flex-col items-center justify-center">
+          <img src={project.thumbnail} alt={project.title} className="w-full h-40 object-cover rounded-lg mb-2" />
+          <h3 className="text-xl font-bold">{project.title}</h3>
+          <p className="text-sm">{project.category}</p>
+        </div>
+        {/* Back */}
+        <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-[var(--card)] rounded-xl p-4 overflow-auto">
+          <h3 className="text-lg font-bold mb-2">{project.title}</h3>
+          <p className="text-sm mb-2">{project.description}</p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {project.images.map((img, idx) => (
+              <img key={idx} src={img} alt={`${project.title} ${idx}`} className="w-16 h-16 object-cover rounded" />
+            ))}
+          </div>
+          {project.pdf && (
+            <a href={project.pdf} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline">
+              Voir PDF
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProjectCard;
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans components : ProjectGrid.tsx
+
+ import React from 'react';
+import type { Project } from '../data/projects';
+import ProjectCard from './ProjectCard';
+
+interface ProjectGridProps {
+  projects: Project[];
+}
+
+const ProjectGrid: React.FC<ProjectGridProps> = ({ projects }) => {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {projects.map(project => (
+        <ProjectCard key={project.id} project={project} />
+      ))}
+    </div>
+  );
+};
+
+export default ProjectGrid;
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans components : Sidebar.tsx
+
+ import React from 'react';
+import { Link } from 'react-router-dom';
+
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  return (
+    <div className={`fixed inset-0 bg-black/50 z-40 transition-opacity ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`fixed left-0 top-0 w-64 h-full bg-[var(--card)] p-6 transform transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <button className="mb-6" onClick={onClose}>Fermer</button>
+        <nav className="flex flex-col gap-4">
+          <Link to="/" onClick={onClose}>Accueil</Link>
+          <Link to="/projects" onClick={onClose}>Projets</Link>
+          <Link to="/about" onClick={onClose}>À propos</Link>
+          <Link to="/admin" onClick={onClose}>Admin</Link>
+        </nav>
+      </div>
+    </div>
+  );
+};
+
+export default Sidebar;
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans pages: AboutPage.tsx
+
+ import React from 'react';
+import About from '../components/About';
+
+const AboutPage: React.FC = () => {
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">À propos</h1>
+      <About />
+    </div>
+  );
+};
+
+export default AboutPage;
+-----------------------------------------------------------------------------------------------------------------
+ ---fichier dans pages : AdminPage.tsx  (Logique pour une authentification via supabase)
+
+import React, { useEffect, useState } from "react";
+import AdminPanel from "../components/AdminPanel";
+import { login } from "../utils/auth";
+import { supabase } from "../utils/supabase";
+import { Lock, User } from "lucide-react";
+
+const AdminPage: React.FC = () => {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  //Vérifier session Supabase existante
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setAuthenticated(!!data.user);
+    });
+  }, []);
+
+  const handleLogin = async () => {
+    const ok = await login(email, password);
+    if (ok) setAuthenticated(true);
+    else alert("Identifiants incorrects");
+  };
+
+  //Loading pendant vérification session
+  if (authenticated === null) {
+    return (
+      <div className="flex justify-center items-center min-h-screen text-white">
+        Chargement…
+      </div>
+    );
+  }
+
+  //Non authentifié → login
+  if (!authenticated) {
+    return (
+      <div className="flex justify-center items-center min-h-screen p-6 bg-gradient-to-br from-[#0a0f1a] to-[#0f1724]">
+        <div className="w-full max-w-md bg-[var(--card)] border border-[var(--glass)] p-8 rounded-2xl shadow-2xl backdrop-blur-lg">
+          <h1 className="text-3xl font-bold mb-8 text-center text-white">
+            Connexion Administrateur
+          </h1>
+
+          {/* Email */}
+          <div className="mb-5">
+            <label className="text-sm text-[var(--muted)]">Email</label>
+            <div className="flex items-center bg-[var(--glass)] border border-[var(--accent)] rounded-xl mt-1 p-3">
+              <User className="text-[var(--accent)] mr-3" size={22} />
+              <input
+                type="email"
+                value={email}
+                placeholder="admin@tonsite.com"
+                onChange={e => setEmail(e.target.value)}
+                className="bg-transparent outline-none w-full text-white"
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="mb-6">
+            <label className="text-sm text-[var(--muted)]">Mot de passe</label>
+            <div className="flex items-center bg-[var(--glass)] border border-[var(--accent)] rounded-xl mt-1 p-3">
+              <Lock className="text-[var(--accent)] mr-3" size={22} />
+              <input
+                type="password"
+                value={password}
+                placeholder="Votre mot de passe"
+                onChange={e => setPassword(e.target.value)}
+                className="bg-transparent outline-none w-full text-white"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogin}
+            className="w-full py-3 bg-[var(--accent)] text-[#061019] font-bold rounded-xl text-lg shadow-lg hover:bg-yellow-500 transition"
+          >
+            Se connecter
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  //Authentifié → Admin
+  return <AdminPanel />;
+};
+
+export default AdminPage;
+ -----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans pages: Projects.tsx
+import React from 'react';
+import ProjectGrid from '../components/ProjectGrid';
+import { useStorage } from '../hooks/useStorage';
+
+const Projects: React.FC = () => {
+  const { projects } = useStorage();
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Tous mes projets</h1>
+      <ProjectGrid projects={projects} />
+    </div>
+  );
+};
+
+export default Projects;
+ -----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans utils: auth.ts ( Logique pour utiliser l'authentification de supabase)
+
+import { supabase } from '../utils/supabase';
+
+export const login = async (email: string, password: string) => {
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  return !error;
+};
+
+export const logout = async () => {
+  await supabase.auth.signOut();
+};
+
+export const getUser = async () => {
+  const { data } = await supabase.auth.getUser();
+  return data.user;
+};
+-----------------------------------------------------------------------------------------------------------------
+-- fichier dans hooks: supabase.ts (De supabase)
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(
+  supabaseUrl,
+  supabaseAnonKey
+);
+
+-----------------------------------------------------------------------------------------------------------------
+-- fichier dans hooks: useStorage.ts (De supabase)
+
+import { useEffect, useState } from 'react';
+import type { Project } from '../data/projects';
+import { supabase } from '../utils/supabase';
+
+export const useStorage = () => {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // READ
+  const fetchProjects = async () => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) setProjects(data);
+    setLoading(false);
+  };
+
+  // CREATE
+  const saveProject = async (project: Omit<Project, 'id' | 'created_at'>) => {
+    await supabase.from('projects').insert(project);
+    fetchProjects();
+  };
+
+  // DELETE
+  const deleteProject = async (id: string) => {
+    await supabase.from('projects').delete().eq('id', id);
+    fetchProjects();
+  };
+
+  // STORAGE
+  const uploadFile = async (file: File) => {
+    const path = `${Date.now()}-${file.name}`;
+
+    const { error } = await supabase
+      .storage
+      .from('projects-files')
+      .upload(path, file);
+
+    if (error) throw error;
+
+    const { data } = supabase
+      .storage
+      .from('projects-files')
+      .getPublicUrl(path);
+
+    return data.publicUrl;
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  return {
+    projects,
+    getProjects: () => projects,
+    saveProject,
+    deleteProject,
+    uploadFile,
+    loading
+  };
+};
+-----------------------------------------------------------------------------------------------------------------
+-- fichier dans hooks: useUpload.ts (De supabase)
+
+import { supabase } from '../utils/supabase';
+
+export const uploadFile = async (file: File) => {
+  const filePath = `${Date.now()}-${file.name}`;
+
+  const { error } = await supabase.storage
+    .from('projects-files')
+    .upload(filePath, file);
+
+  if (error) throw error;
+
+  const { data } = supabase.storage
+    .from('projects-files')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans data: projets.ts
+export interface Project {
+  id: string;
+  title: string;
+  description?: string;
+  category?: string;
+  images: string[];
+  thumbnail?: string;
+  pdf?: string;
+  created_at: string; // ← Supabase
+}
+
+ -----------------------------------------------------------------------------------------------------------------
+ ---fichier dans src : App.tsx
+
+ import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Header from './components/Header.tsx';
+import Footer from './components/Footer.tsx';
+import Home from './components/Home.tsx';
+import Projects from './pages/Projects.tsx';
+import AboutPage from './pages/AboutPage.tsx';
+import AdminPage from './pages/AdminPage.tsx';
+
+const App: React.FC = () => {
+  return (
+    <Router>
+      <div className="flex flex-col min-h-screen bg-[var(--bg)] text-[var(--muted)]">
+        <Header />
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+          </Routes>
+        </main>
+        <Footer />
+      </div>
+    </Router>
+  );
+};
+
+export default App;
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans src: main.tsx
+
+ import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans src : index.css
+
+ @tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables globales */
+:root {
+  --bg: #0f1724;
+  --card: #0b1220;
+  --muted: #9aa6b2;
+  --accent: #f59e0b;
+  --glass: rgba(255,255,255,0.04);
+}
+
+/* Flip 3D */
+.perspective {
+  perspective: 1000px;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.perspective { perspective: 1000px; }
+.transform-style-preserve-3d { transform-style: preserve-3d; }
+.backface-hidden { backface-visibility: hidden; }
+.rotate-y-180 { transform: rotateY(180deg); }
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans .env
+
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=xxxxx
+-----------------------------------------------------------------------------------------------------------------
+
+ ---fichier dans package.json
+
+{
+  "name": "portfolio",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "tailwind:watch": "npx tailwindcss -i ./src/index.css -o ./dist/output.css --watch",
+    "tailwind:build": "npx tailwindcss -i ./src/index.css -o ./dist/output.css --minify"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.87.1",
+    "crypto-js": "^4.2.0",
+    "idb": "^8.0.3",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.10.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-router-dom": "^5.3.3",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.22",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "npm:rolldown-vite@7.2.5"
+  },
+  "overrides": {
+    "vite": "npm:rolldown-vite@7.2.5"
+  }
+}
+
