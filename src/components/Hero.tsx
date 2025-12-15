@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Hero: React.FC = () => {
   return (
@@ -10,9 +11,14 @@ const Hero: React.FC = () => {
         <p className="text-lg md:text-2xl mb-8 drop-shadow-md">
           Audit et sécurisation de systèmes d'information
         </p>
-        <a href="#projects" className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-3 rounded-lg shadow-lg hover:bg-yellow-500 transition">
+
+        {/* ✅ Navigation React Router */}
+        <Link
+          to="/projects"
+          className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-3 rounded-lg shadow-lg hover:bg-yellow-500 transition"
+        >
           Voir mes projets
-        </a>
+        </Link>
       </div>
     </section>
   );

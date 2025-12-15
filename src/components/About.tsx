@@ -1,36 +1,43 @@
+
 import React from 'react';
+import { useAdminProfile } from '../hooks/useAdminProfile';
 
 const About: React.FC = () => {
+  const { profile, loading } = useAdminProfile();
+
+  if (loading) return <p>Chargement du profil...</p>;
+  if (!profile) return <p>Profil non trouvé</p>;
+
   return (
     <section
       id="about"
       className="container mx-auto p-6 flex flex-col md:flex-row items-start gap-10"
     >
-      {/* Avatar */}
+     {/* Avatar (TOUJOURS VALIDE) */}
       <img
-        src="/assets/PI.jpg"
-        alt="Avatar"
+        src={profile.avatar}
+        alt="Avatar admin"
         className="w-40 h-40 rounded-full border-4 border-[var(--glass)] object-cover"
       />
 
       {/* Texte */}
       <div className="flex-1">
-        <h2 className="text-3xl font-bold mb-4">Lawson-Tychus Ariel</h2>
+        <h2 className="text-3xl font-bold mb-4">
+          {profile.name ?? 'Administrateur'}
+        </h2>
 
         <p className="mb-2">
           Passionné par la cybersécurité et la protection des infrastructures
           informatiques, je me spécialise dans l’administration, l’analyse et la
-          sécurisation des environnements Linux & Windows. Curieux et autonome,
-          j’aime concevoir des architectures virtuelles, auditer les réseaux et
-          renforcer la résilience des systèmes face aux menaces.
+          sécurisation des environnements Linux & Windows.
         </p>
 
-        <h3 className="text-xl font-semibold mt-6 mb-4">Compétences par domaines</h3>
+        <h3 className="text-xl font-semibold mt-6 mb-4">
+          Compétences par domaines
+        </h3>
 
-        {/* GRID DES CARTES */}
+        {/* GRID DES CARTES (inchangée) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          {/* Réseaux */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Administration Réseaux</h4>
             <p className="text-sm">
@@ -39,7 +46,6 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Systèmes */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Administration Systèmes</h4>
             <p className="text-sm">
@@ -48,7 +54,6 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Cybersécurité */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Cybersécurité</h4>
             <p className="text-sm">
@@ -57,7 +62,6 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Programmation */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Programmation & Scripts</h4>
             <p className="text-sm">
@@ -65,7 +69,6 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Développement Web */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Développement Web</h4>
             <p className="text-sm">
@@ -73,14 +76,12 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Outils */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Outils & Gestion</h4>
             <p className="text-sm">
               Git, GitHub, GitLab, CI/CD basique, documentation technique.
             </p>
           </div>
-
         </div>
       </div>
     </section>

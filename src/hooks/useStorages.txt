@@ -1,60 +1,380 @@
 Comment faire le deploiement sur vercel et pout github : Paramètres configuré dans supabase
 
--- Activer l'extension pour uuid_generate_v4()
-create extension if not exists "uuid-ossp";
 
--- Création de la table projects
-create table if not exists projects (
-    id uuid primary key default uuid_generate_v4(),
-    title text not null,
-    description text,
-    category text,
-    thumbnail text,
-    images text[] not null default '{}',
-    pdf text,
-    created_at timestamp with time zone default now()
+Ces différents fichier fonctionne bien après déploiement maintenant on veut : 
+
+1- Pouvoir modifier un projet existants avec formulaire pré-remplis
+2- Ajouter un formulaire pour modifier le profil (Photo et Nom) de l'admin après authentification
+3- Les diférentes étapes pour mettre à jour cette modification et coté react et supabase avec les correctif des tables et règles
+
+1- La modification du profil admin telle que la photo, le nom de l'admin ne change pas sur le site mais l'image est uploader dans le bucket storage admin-avatar
+dans supabase
+
+2- Vérification des fichiers et logiques pour d'eventuel erreurs
+
+1- Ajuster le code pour que si on veut ajouter un projet il faut que les champs soient obligatoires
+2- Modifier la notification quand le profil admin est modifier ou encore quand on ajoute, modifie ou supprime un projet
+3- S'assurer que quand le formulaire de projet est remplie avec les infos et que l'admin clique sur soit 
+le bouton Ajouter ou modifier les données soients automatiquement enrégistré dans la base de donnée sans redondance.
+4- Pouvoir ajouter 6 images par projet dans AdminPanel.tsx avec une fonctionnalié zoom quand on passe 
+la souris sur l'un des images derrière la carte (Quand la souris est sur l'image elle est afficher et une fosi la souris passer elle reprend 
+son état initial)
+
+1- Rendre les champs obligatoires lors de l’ajout d’un projet afin d’éviter l’enregistrement de données incomplètes.
+
+2- Améliorer les notifications pour informer clairement l’administrateur lorsque le profil Admin
+est modifié ou lorsqu’un projet est ajouté, modifié ou supprimé.
+
+3- Garantir l’enregistrement automatique des données : lorsque l’administrateur clique sur Ajouter ou Modifier, 
+les informations du formulaire doivent être sauvegardées directement dans la base de données, sans doublons.
+
+4- Autoriser l’ajout de jusqu’à 6 images par projet dans AdminPanel.tsx et intégrer un effet de zoom au survol :
+
+  4.1- l’image s’agrandit lorsque la souris passe dessus,
+
+  4.2- puis revient à son état initial lorsque la souris quitte l’image.
+  
+  5- Améliorer le temps de réaction des boutons pour etre fonctionnelle automatiquement quand on clique dessus pour les opération.
+
+Toute les opération réaliser sur les bases de donnée : 
+
+Base de données dans supabase :
+
+1)- admin_profile : 
+
+-- 1️⃣ Supprimer l’ancienne table si elle existe
+DROP TABLE IF EXISTS public.admin_profile CASCADE;
+
+-- 2️⃣ Créer la nouvelle table admin_profile simplifiée
+CREATE TABLE public.admin_profile (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text,
+    avatar text,
+    updated_at timestamp DEFAULT now()
 );
 
-ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+-- 3️⃣ Activer Row Level Security
+ALTER TABLE public.admin_profile ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Public read projects"
-ON projects
+-- 4️⃣ Policies pour l’admin uniquement
+-- INSERT : l’admin peut insérer son profil
+CREATE POLICY "Admin insert profile"
+ON public.admin_profile
+FOR INSERT
+TO public
+WITH CHECK (auth.email() = 'amouzouninon05@gmail.com');
+
+-- UPDATE : l’admin peut modifier uniquement son profil
+CREATE POLICY "Admin update profile"
+ON public.admin_profile
+FOR UPDATE
+TO public
+USING (auth.email() = 'amouzouninon05@gmail.com');
+
+-- SELECT : l’admin peut lire son profil
+CREATE POLICY "Admin read profile"
+ON public.admin_profile
 FOR SELECT
-USING (true);
+TO public
+USING (auth.email() = 'amouzouninon05@gmail.com');
 
-CREATE POLICY "Admin insert projects"
-ON projects
-FOR INSERT
-WITH CHECK (auth.role() = 'authenticated');
 
-CREATE POLICY "Admin update projects"
-ON projects
-FOR UPDATE
-USING (auth.role() = 'authenticated');
+2)- projects DB : 
 
-CREATE POLICY "Admin delete projects"
-ON projects
-FOR DELETE
-USING (auth.role() = 'authenticated');
+-- ==============================
+-- 1️⃣ Extensions installées
+-- ==============================
+SELECT extname AS extension_name, extversion AS version
+FROM pg_extension
+ORDER BY extname;
 
-DROP POLICY IF EXISTS "Admin insert projects" ON projects;
-DROP POLICY IF EXISTS "Admin update projects" ON projects;
-DROP POLICY IF EXISTS "Admin delete projects" ON projects;
+[
+  {
+    "extension_name": "pg_graphql",
+    "version": "1.5.11"
+  },
+  {
+    "extension_name": "pg_stat_statements",
+    "version": "1.11"
+  },
+  {
+    "extension_name": "pgcrypto",
+    "version": "1.3"
+  },
+  {
+    "extension_name": "plpgsql",
+    "version": "1.0"
+  },
+  {
+    "extension_name": "supabase_vault",
+    "version": "0.3.1"
+  },
+  {
+    "extension_name": "uuid-ossp",
+    "version": "1.1"
+  }
+]
+-- ==============================
+-- 2️⃣ Tables du schéma public
+-- ==============================
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
 
-CREATE POLICY "Admin insert projects"
-ON projects
-FOR INSERT
-WITH CHECK (auth.email() = 'lightning@folio.com');
+[
+  {
+    "table_name": "admin_profile"
+  },
+  {
+    "table_name": "projects"
+  }
+]
+-- ==============================
+-- 3️⃣ Colonnes et types par table
+-- ==============================
+SELECT table_name, column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = 'public'
+ORDER BY table_name, ordinal_position;
 
-CREATE POLICY "Admin update projects"
-ON projects
-FOR UPDATE
-USING (auth.email() = 'lightning@folio.com');
+[
+  {
+    "table_name": "admin_profile",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "admin_profile",
+    "column_name": "name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "admin_profile",
+    "column_name": "avatar",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "admin_profile",
+    "column_name": "updated_at",
+    "data_type": "timestamp without time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "gen_random_uuid()"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "title",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "description",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "category",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "thumbnail",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "images",
+    "data_type": "ARRAY",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "pdf",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "projects",
+    "column_name": "created_at",
+    "data_type": "timestamp without time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "github_url",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  }
+]
+-- ==============================
+-- 4️⃣ Vérifier RLS activé
+-- ==============================
+SELECT relname AS table_name,
+       relrowsecurity AS rls_enabled,
+       relforcerowsecurity AS rls_forced
+FROM pg_class
+WHERE relkind = 'r' -- uniquement les tables
+  AND relnamespace IN (SELECT oid FROM pg_namespace WHERE nspname='public')
+ORDER BY relname;
 
-CREATE POLICY "Admin delete projects"
-ON projects
-FOR DELETE
-USING (auth.email() = 'lightning@folio.com');
+[
+  {
+    "table_name": "admin_profile",
+    "rls_enabled": true,
+    "rls_forced": false
+  },
+  {
+    "table_name": "projects",
+    "rls_enabled": true,
+    "rls_forced": false
+  }
+]
+
+-- ==============================
+-- 5️⃣ Lister toutes les policies
+-- ==============================
+SELECT
+    c.relname AS table_name,
+    p.polname AS policy_name,
+    p.polcmd AS command,
+    p.polpermissive AS permissive,
+    p.polqual::text AS using_expression,
+    p.polwithcheck::text AS check_expression
+FROM pg_policy p
+JOIN pg_class c ON p.polrelid = c.oid
+WHERE c.relnamespace IN (SELECT oid FROM pg_namespace WHERE nspname='public')
+ORDER BY table_name, policy_name;
+
+[
+  {
+    "table_name": "admin_profile",
+    "policy_name": "Admin insert profile",
+    "command": "a",
+    "permissive": true,
+    "using_expression": null,
+    "check_expression": "{OPEXPR :opno 98 :opfuncid 67 :opresulttype 16 :opretset false :opcollid 0 :inputcollid 100 :args ({FUNCEXPR :funcid 16540 :funcresulttype 25 :funcretset false :funcvariadic false :funcformat 0 :funccollid 100 :inputcollid 0 :args <> :location -1} {CONST :consttype 25 :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false :location -1 :constvalue 28 [ 112 0 0 0 97 109 111 117 122 111 117 110 105 110 111 110 48 53 64 103 109 97 105 108 46 99 111 109 ]}) :location -1}"
+  },
+  {
+    "table_name": "admin_profile",
+    "policy_name": "Admin read profile",
+    "command": "r",
+    "permissive": true,
+    "using_expression": "{OPEXPR :opno 98 :opfuncid 67 :opresulttype 16 :opretset false :opcollid 0 :inputcollid 100 :args ({FUNCEXPR :funcid 16540 :funcresulttype 25 :funcretset false :funcvariadic false :funcformat 0 :funccollid 100 :inputcollid 0 :args <> :location -1} {CONST :consttype 25 :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false :location -1 :constvalue 28 [ 112 0 0 0 97 109 111 117 122 111 117 110 105 110 111 110 48 53 64 103 109 97 105 108 46 99 111 109 ]}) :location -1}",
+    "check_expression": null
+  },
+  {
+    "table_name": "admin_profile",
+    "policy_name": "Admin update profile",
+    "command": "w",
+    "permissive": true,
+    "using_expression": "{OPEXPR :opno 98 :opfuncid 67 :opresulttype 16 :opretset false :opcollid 0 :inputcollid 100 :args ({FUNCEXPR :funcid 16540 :funcresulttype 25 :funcretset false :funcvariadic false :funcformat 0 :funccollid 100 :inputcollid 0 :args <> :location -1} {CONST :consttype 25 :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false :location -1 :constvalue 28 [ 112 0 0 0 97 109 111 117 122 111 117 110 105 110 111 110 48 53 64 103 109 97 105 108 46 99 111 109 ]}) :location -1}",
+    "check_expression": null
+  },
+  {
+    "table_name": "projects",
+    "policy_name": "Admin delete projects",
+    "command": "d",
+    "permissive": true,
+    "using_expression": "{OPEXPR :opno 98 :opfuncid 67 :opresulttype 16 :opretset false :opcollid 0 :inputcollid 100 :args ({FUNCEXPR :funcid 16540 :funcresulttype 25 :funcretset false :funcvariadic false :funcformat 0 :funccollid 100 :inputcollid 0 :args <> :location -1} {CONST :consttype 25 :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false :location -1 :constvalue 28 [ 112 0 0 0 97 109 111 117 122 111 117 110 105 110 111 110 48 53 64 103 109 97 105 108 46 99 111 109 ]}) :location -1}",
+    "check_expression": null
+  },
+  {
+    "table_name": "projects",
+    "policy_name": "Admin insert projects",
+    "command": "a",
+    "permissive": true,
+    "using_expression": null,
+    "check_expression": "{OPEXPR :opno 98 :opfuncid 67 :opresulttype 16 :opretset false :opcollid 0 :inputcollid 100 :args ({FUNCEXPR :funcid 16540 :funcresulttype 25 :funcretset false :funcvariadic false :funcformat 0 :funccollid 100 :inputcollid 0 :args <> :location -1} {CONST :consttype 25 :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false :location -1 :constvalue 28 [ 112 0 0 0 97 109 111 117 122 111 117 110 105 110 111 110 48 53 64 103 109 97 105 108 46 99 111 109 ]}) :location -1}"
+  },
+  {
+    "table_name": "projects",
+    "policy_name": "Admin update projects",
+    "command": "w",
+    "permissive": true,
+    "using_expression": "{OPEXPR :opno 98 :opfuncid 67 :opresulttype 16 :opretset false :opcollid 0 :inputcollid 100 :args ({FUNCEXPR :funcid 16540 :funcresulttype 25 :funcretset false :funcvariadic false :funcformat 0 :funccollid 100 :inputcollid 0 :args <> :location -1} {CONST :consttype 25 :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false :location -1 :constvalue 28 [ 112 0 0 0 97 109 111 117 122 111 117 110 105 110 111 110 48 53 64 103 109 97 105 108 46 99 111 109 ]}) :location -1}",
+    "check_expression": null
+  },
+  {
+    "table_name": "projects",
+    "policy_name": "Public read projects",
+    "command": "r",
+    "permissive": true,
+    "using_expression": "{CONST :consttype 16 :consttypmod -1 :constcollid 0 :constlen 1 :constbyval true :constisnull false :location -1 :constvalue 1 [ 1 0 0 0 0 0 0 0 ]}",
+    "check_expression": null
+  }
+]
+-- ==============================
+-- 6️⃣ Clés primaires
+-- ==============================
+SELECT
+    tc.table_name,
+    kcu.column_name,
+    tc.constraint_name
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu
+  ON tc.constraint_name = kcu.constraint_name
+WHERE tc.constraint_type = 'PRIMARY KEY'
+  AND tc.table_schema = 'public'
+ORDER BY table_name;
+
+[
+  {
+    "table_name": "admin_profile",
+    "column_name": "id",
+    "constraint_name": "admin_profile_pkey"
+  },
+  {
+    "table_name": "projects",
+    "column_name": "id",
+    "constraint_name": "projects_pkey"
+  }
+]
+
+-- ==============================
+-- 7️⃣ Contenu des tables importantes
+-- ==============================
+-- Table projects
+SELECT * FROM projects;
+
+Success. No rows returned
+
+-- Table admin_profile
+SELECT * FROM admin_profile;
+
+[
+  {
+    "id": "b0c08607-77d6-4abf-9cd7-73a5dbeca1a5",
+    "name": "Ariel Lawson-Tychus",
+    "avatar": "https://xnrvmdellsdeyiuxvsuv.supabase.co/storage/v1/object/public/admin-avatar/admin-avatar/avatar-1765747463893",
+    "updated_at": "2025-12-14 21:24:25.549"
+  }
+]
+------------------------------------------------------------------------------------
 
 Arborescence du projets avec modification des fichiers pour supabase:
 
@@ -62,7 +382,7 @@ Arborescence du projets avec modification des fichiers pour supabase:
  |─ public/
  │    ├─ assets/
  |    ├─ images/
- │          ├─ PI.jpg
+ │          ├─ A.jpg
  |
  |    ├─ pdfs
 src/
@@ -73,8 +393,9 @@ src/
  │    ├─ ProjectGrid.tsx
  │    ├─ Hero.tsx
  │    ├─ About.tsx
- │    ├─ AdminPanel.tsx Seul l'admin après authentification peut modifier le CRUD
- │    ├─ Home.tsx
+ │    ├─ AdminPanel.tsx  (Seul l'admin après authentification peut modifier le CRUD) 
+ │    ├─ AdminProfileForm.tsx
+ |    ├─ Home.tsx
  │    └─ Footer.tsx
  ├─ pages/
  │    ├─ Projects.tsx
@@ -83,10 +404,12 @@ src/
  |─ utils/
  │    ├─ auth.ts
  |    ├─ supabase.ts
- │    ├─ idb.ts (Supprimer)
+ │  
  |─ hooks/
  │    ├─ useStorage.ts
  │    ├─ useUpload.ts 
+ │    ├─ useAdminProfile.tsx
+ |    ├─ useAdminProfile.ts
  ├─ data/
  │    └─ projects.ts
  |─ assets/
@@ -100,23 +423,33 @@ src/
 
  ---fichier dans components : About.tsx
 import React from 'react';
+import { useAdminProfile } from '../hooks/useAdminProfile';
 
 const About: React.FC = () => {
+  const { profile, loading } = useAdminProfile();
+
+  if (loading) return <p>Chargement du profil...</p>;
+  if (!profile) return <p>Profil non trouvé</p>;
+
   return (
     <section
       id="about"
       className="container mx-auto p-6 flex flex-col md:flex-row items-start gap-10"
     >
       {/* Avatar */}
-      <img
-        src="/assets/PI.jpg"
-        alt="Avatar"
-        className="w-40 h-40 rounded-full border-4 border-[var(--glass)] object-cover"
-      />
+      {profile.avatar && (
+        <img
+          src={profile.avatar}
+          alt="Avatar admin"
+          className="w-40 h-40 rounded-full border-4 border-[var(--glass)] object-cover"
+        />
+      )}
 
       {/* Texte */}
       <div className="flex-1">
-        <h2 className="text-3xl font-bold mb-4">À propos de moi</h2>
+        <h2 className="text-3xl font-bold mb-4">
+          {profile.name ?? 'Administrateur'}
+        </h2>
 
         <p className="mb-2">
           Passionné par la cybersécurité et la protection des infrastructures
@@ -126,12 +459,12 @@ const About: React.FC = () => {
           renforcer la résilience des systèmes face aux menaces.
         </p>
 
-        <h3 className="text-xl font-semibold mt-6 mb-4">Compétences par domaines</h3>
+        <h3 className="text-xl font-semibold mt-6 mb-4">
+          Compétences par domaines
+        </h3>
 
-        {/* GRID DES CARTES */}
+        {/* GRID DES CARTES (inchangée) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          {/* Réseaux */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Administration Réseaux</h4>
             <p className="text-sm">
@@ -140,7 +473,6 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Systèmes */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Administration Systèmes</h4>
             <p className="text-sm">
@@ -149,7 +481,6 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Cybersécurité */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Cybersécurité</h4>
             <p className="text-sm">
@@ -158,7 +489,6 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Programmation */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Programmation & Scripts</h4>
             <p className="text-sm">
@@ -166,7 +496,6 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Développement Web */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Développement Web</h4>
             <p className="text-sm">
@@ -174,14 +503,12 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          {/* Outils */}
           <div className="p-4 rounded-2xl border border-[var(--glass)] bg-white/5 backdrop-blur shadow">
             <h4 className="font-semibold text-lg mb-2">Outils & Gestion</h4>
             <p className="text-sm">
               Git, GitHub, GitLab, CI/CD basique, documentation technique.
             </p>
           </div>
-
         </div>
       </div>
     </section>
@@ -192,24 +519,31 @@ export default About;
  -----------------------------------------------------------------------------------------------------------------
 
  ---fichier dans components  : AdminPanel.tsx
- import { logout } from '../utils/auth';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
+import { logout } from '../utils/auth';
 import { useStorage } from '../hooks/useStorage';
-import { useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-
+import AdminProfileForm from './AdminProfileForm';
+import type { Project } from '../data/projects';
 
 const AdminPanel: React.FC = () => {
   useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
-    if (!data.user) {
-      window.location.href = '/';
-    }
-  });
-}, []);
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) window.location.href = '/';
+    });
+  }, []);
 
-  const { projects, saveProject, deleteProject, uploadFile } = useStorage();
+  const {
+    projects,
+    saveProject,
+    updateProject,
+    deleteProject,
+    uploadFile,
+  } = useStorage();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
@@ -217,37 +551,15 @@ const AdminPanel: React.FC = () => {
   const [images, setImages] = useState<File[]>([]);
   const [pdf, setPdf] = useState<File | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!title || !category) {
-      alert('Titre et catégorie obligatoires');
-      return;
-    }
+  const handleEdit = (project: Project) => {
+    setEditingId(project.id);
+    setTitle(project.title);
+    setCategory(project.category ?? '');
+    setDescription(project.description ?? '');
+  };
 
-    const thumbnailUrl = thumbnail
-      ? await uploadFile(thumbnail)
-      : undefined;
-
-    const imagesUrls: string[] = [];
-    for (const img of images) {
-      imagesUrls.push(await uploadFile(img));
-    }
-
-    const pdfUrl = pdf ? await uploadFile(pdf) : undefined;
-
-    // ⚠️ IMPORTANT : on n’utilise PAS le type Project complet
-    await saveProject({
-      title,
-      category,
-      description,
-      thumbnail: thumbnailUrl,
-      images: imagesUrls,
-      pdf: pdfUrl,
-    });
-
-    alert('Projet ajouté !');
-
-    // Reset form
+  const resetForm = () => {
+    setEditingId(null);
     setTitle('');
     setCategory('');
     setDescription('');
@@ -256,96 +568,147 @@ const AdminPanel: React.FC = () => {
     setPdf(null);
   };
 
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    const thumbnailUrl = thumbnail
+      ? await uploadFile(thumbnail)
+      : undefined;
+
+    const imagesUrls = images.length
+      ? await Promise.all(images.map(uploadFile))
+      : undefined;
+
+    const pdfUrl = pdf ? await uploadFile(pdf) : undefined;
+
+    if (editingId) {
+      await updateProject(editingId, {
+        title,
+        category,
+        description,
+        thumbnail: thumbnailUrl,
+        images: imagesUrls,
+        pdf: pdfUrl,
+      });
+
+      alert('Projet modifié');
+    } else {
+      await saveProject({
+        title,
+        category,
+        description,
+        thumbnail: thumbnailUrl,
+        images: imagesUrls ?? [],
+        pdf: pdfUrl,
+      });
+
+      alert('Projet ajouté');
+    }
+
+    resetForm();
+  };
+
   return (
     <section className="p-6">
-      <h2 className="text-2xl font-bold mb-4">
-        Admin Panel - Ajouter un projet
-      </h2>
-
       <button
-          onClick={async () => {
-            await logout();
-            window.location.href = '/';
-          }}
-          className="mb-4 px-4 py-2 rounded bg-red-500 text-white font-bold hover:bg-red-600 transition"
-        >
-          Se déconnecter
+        onClick={async () => {
+          await logout();
+          window.location.href = '/';
+        }}
+        className="mb-4 px-4 py-2 rounded bg-red-500 text-white font-bold"
+      >
+        Se déconnecter
       </button>
 
-      <form className="flex flex-col gap-3 mb-6" onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Titre"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
-        />
+      {/* PROFIL ADMIN */}
+      <AdminProfileForm />
 
-        <input
-          type="text"
-          placeholder="Catégorie"
-          value={category}
-          onChange={e => setCategory(e.target.value)}
-          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
-        />
+      {/* FORM PROJET */}
 
-        <textarea
-          placeholder="Description"
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
-        />
+      <div className="p-4 border rounded-xl mb-6">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3 mb-6">
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Titre"
+              className="admin-input"
+            />
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            e.target.files && setThumbnail(e.target.files[0])
-          }
-        />
+            <input
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              placeholder="Catégorie"
+              className="admin-input"
+            />
 
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            e.target.files && setImages(Array.from(e.target.files))
-          }
-        />
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Description"
+              className="admin-input"
+            />
 
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            e.target.files && setPdf(e.target.files[0])
-          }
-        />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                e.target.files && setThumbnail(e.target.files[0])
+              }
+              className="admin-input"
+            />
 
-        <button
-          type="submit"
-          className="bg-[var(--accent)] px-4 py-2 rounded text-[#061019] font-bold hover:bg-yellow-500 transition"
-        >
-          Ajouter
-        </button>
-      </form>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                e.target.files && setImages(Array.from(e.target.files))
+              }
+              className="admin-input"
+            />
 
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                e.target.files && setPdf(e.target.files[0])
+              }
+              className="admin-input"
+            />
+
+            <button className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-3 rounded-lg shadow-lg">
+              {editingId ? 'Mettre à jour' : 'Ajouter'}
+            </button>
+          </form>
+     </div>
+     
+      {/* LISTE PROJETS */}
       <h3 className="text-xl font-bold mb-2">Projets existants</h3>
-      <ul className="space-y-2">
-        {projects.map(p => (
-          <li
-            key={p.id}
-            className="flex justify-between items-center p-2 bg-[var(--card)] rounded"
-          >
-            <span>{p.title}</span>
+
+      {projects.map(project => (
+        <div
+          key={project.id}
+          className="flex justify-between items-center mb-2"
+        >
+          <span>{project.title}</span>
+
+          <div className="flex gap-2">
+            <button
+              className="text-yellow-500"
+              onClick={() => handleEdit(project)}
+            >
+              Modifier
+            </button>
+
             <button
               className="text-red-500"
-              onClick={() => deleteProject(p.id)}
+              onClick={() => deleteProject(project.id)}
             >
               Supprimer
             </button>
-          </li>
-        ))}
-      </ul>
+          </div>
+        </div>
+      ))}
     </section>
   );
 };
@@ -353,18 +716,118 @@ const AdminPanel: React.FC = () => {
 export default AdminPanel;
 -----------------------------------------------------------------------------------------------------------------
 
+---------fichier dans components : AdminProfileForm.tsx
+import React, { useState } from 'react';
+import { useAdminProfile } from '../hooks/useAdminProfile';
+
+const AdminProfileForm: React.FC = () => {
+  const { profile, loading, updateProfile, uploadAvatar } = useAdminProfile();
+
+  const [name, setName] = useState('');
+  const [avatar, setAvatar] = useState<File | null>(null);
+
+  if (loading) return <p>Chargement du profil...</p>;
+  if (!profile) return <p>Profil non trouvé</p>;
+
+  const handleSubmit = async () => {
+    let avatarUrl = profile.avatar;
+
+    if (avatar) {
+      avatarUrl = await uploadAvatar(avatar);
+    }
+
+    await updateProfile({
+      name: name || profile.name, // si name vide, on garde profile.name
+      avatar: avatarUrl,
+      updated_at: new Date().toISOString(),
+    });
+
+    alert('Profil mis à jour');
+    setAvatar(null); // reset input
+  };
+
+  return (
+    <div key={profile.id} className="p-4 border rounded-xl mb-6">
+      <h3 className="text-xl font-bold mb-4">Profil Admin</h3>
+
+      {profile.avatar && (
+        <img
+          src={profile.avatar}
+          alt="Avatar admin"
+          className="w-24 h-24 rounded-full mb-4 object-cover"
+        />
+      )}
+
+      <input
+        type="text"
+        value={name || profile.name || ''}
+        onChange={e => setName(e.target.value)}
+        className="p-2 w-full mb-2, admin-input"
+        placeholder="Nom"
+      />
+
+
+      <input
+        type="file"
+        accept="image/*"
+        onChange={e => e.target.files && setAvatar(e.target.files[0])}
+         className="admin-input"
+      />
+
+      <button
+        onClick={handleSubmit}
+        className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-3 rounded-lg shadow-lg hover:bg-yellow-500 transition"
+      >
+        Sauvegarder
+      </button>
+    </div>
+  );
+};
+
+export default AdminProfileForm;
+-----------------------------------------------------------------------------------------------------------------
+
  ---fichier dans components : Footer.tsx
 
- import React from 'react';
+import React from 'react';
+import { Github, Linkedin, Mail } from 'lucide-react';
 
 const Footer: React.FC = () => {
   return (
     <footer className="bg-[var(--card)] text-[var(--muted)] py-4 text-center mt-8 rounded-t-xl">
       <p>&copy; {new Date().getFullYear()} MyPortfolio. Tous droits réservés.</p>
-      <div className="flex justify-center gap-4 mt-2">
-        <a href="https://github.com" target="_blank" className="hover:text-white transition">GitHub</a>
-        <a href="https://linkedin.com" target="_blank" className="hover:text-white transition">LinkedIn</a>
-        <a href="mailto:email@example.com" className="hover:text-white transition">Email</a>
+
+      <div className="flex justify-center gap-6 mt-3">
+        {/* GitHub */}
+        <a
+          href="https://github.com/NIN-12"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-white transition"
+          aria-label="GitHub"
+        >
+          <Github size={22} />
+        </a>
+
+        {/* LinkedIn */}
+        <a
+          href="https://www.linkedin.com/in/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-white transition"
+          aria-label="LinkedIn"
+        >
+          <Linkedin size={22} />
+        </a>
+
+        {/* Email */}
+        <a
+          href="mailto:example@gmail.com"
+          className="hover:text-white transition"
+          aria-label="Email"
+        >
+          <Mail size={22} />
+        </a>
       </div>
     </footer>
   );
@@ -374,22 +837,27 @@ export default Footer;
 -----------------------------------------------------------------------------------------------------------------
 
  ---fichier dans components : Hero.tsx
-
- import React from 'react';
+import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Hero: React.FC = () => {
   return (
     <section className="relative flex flex-col items-center justify-center text-center py-20 bg-gradient-to-b from-[#071026] to-[#081423] text-white">
       <div className="max-w-3xl">
         <h1 className="text-4xl md:text-6xl font-extrabold mb-4 drop-shadow-lg">
-          PORTFOLIO WEBMASTER | WEBDESIGNER
+          SECURITÉ CYBERMASTER | PENTEST JUNIOR
         </h1>
         <p className="text-lg md:text-2xl mb-8 drop-shadow-md">
-          Création de sites modernes et interactifs
+          Audit et sécurisation de systèmes d'information
         </p>
-        <a href="#projects" className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-3 rounded-lg shadow-lg hover:bg-yellow-500 transition">
+
+        {/* ✅ Navigation React Router */}
+        <Link
+          to="/projects"
+          className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-3 rounded-lg shadow-lg hover:bg-yellow-500 transition"
+        >
           Voir mes projets
-        </a>
+        </Link>
       </div>
     </section>
   );
@@ -399,22 +867,26 @@ export default Hero;
 -----------------------------------------------------------------------------------------------------------------
 
  ---fichier dans components : Home.tsx
+
 import React from 'react';
 import Hero from '../components/Hero';
-import about from '../components/about.tsx';
-import ProjectGrid from '../components/ProjectGrid.tsx';
-import { useStorage } from '../hooks/useStorage.ts';
+import About from '../components/About';
+import ProjectGrid from '../components/ProjectGrid';
+import { useStorage } from '../hooks/useStorage';
 
 const Home: React.FC = () => {
   const { projects } = useStorage();
   const preview = projects.slice(0, 6);
 
-
   return (
     <div className="container mx-auto p-4">
       <Hero />
       <About />
-      <h2 className="text-2xl font-bold mt-8 mb-4">Projets récents</h2>
+
+      <h2 className="text-2xl font-bold mt-8 mb-4">
+        Projets récents
+      </h2>
+
       <ProjectGrid projects={preview} />
     </div>
   );
@@ -425,9 +897,8 @@ export default Home;
 
  ---fichier dans components : ProjectCard.tsx
 
- import React, { useState } from 'react';
+import React, { useState } from 'react';
 import type { Project } from '../data/projects';
-
 
 interface ProjectCardProps {
   project: Project;
@@ -475,7 +946,7 @@ export default ProjectCard;
 
  ---fichier dans components : ProjectGrid.tsx
 
- import React from 'react';
+import React from 'react';
 import type { Project } from '../data/projects';
 import ProjectCard from './ProjectCard';
 
@@ -498,7 +969,7 @@ export default ProjectGrid;
 
  ---fichier dans components : Sidebar.tsx
 
- import React from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 
 interface SidebarProps {
@@ -523,11 +994,41 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 };
 
 export default Sidebar;
+----------------------------------------------------------------------------------------------------------------
+
+---------- Fichier dans components : Header.tsx
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import Sidebar from './Sidebar';
+
+const Header: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-50 bg-[var(--card)]/80 backdrop-blur-md shadow-md rounded-b-xl">
+      <div className="container mx-auto flex justify-between items-center p-4">
+        <Link to="/" className="text-[var(--accent)] font-bold text-xl">Picasso</Link>
+        <nav className="hidden md:flex gap-6">
+          <Link to="/" className="hover:text-white transition">Accueil</Link>
+          <Link to="/projects" className="hover:text-white transition">Projets</Link>
+          <Link to="/about" className="hover:text-white transition">À propos</Link>
+          <Link to="/admin" className="hover:text-white transition">Admin</Link>
+        </nav>
+        <button className="md:hidden" onClick={() => setIsOpen(true)}>
+          <span className="material-icons text-[var(--accent)]">menu</span>
+        </button>
+      </div>
+      <Sidebar isOpen={isOpen} onClose={() => setIsOpen(false)} />
+    </header>
+  );
+};
+
+export default Header;
 -----------------------------------------------------------------------------------------------------------------
 
  ---fichier dans pages: AboutPage.tsx
 
- import React from 'react';
+import React from 'react';
 import About from '../components/About';
 
 const AboutPage: React.FC = () => {
@@ -541,13 +1042,14 @@ const AboutPage: React.FC = () => {
 
 export default AboutPage;
 -----------------------------------------------------------------------------------------------------------------
- ---fichier dans pages : AdminPage.tsx  (Logique pour une authentification via supabase)
+
+ ---fichier dans pages : AdminPage.tsx  
 
 import React, { useEffect, useState } from "react";
 import AdminPanel from "../components/AdminPanel";
-import { login } from "../utils/auth";
 import { supabase } from "../utils/supabase";
 import { Lock, User } from "lucide-react";
+import { login } from "../utils/auth";
 
 const AdminPage: React.FC = () => {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -562,10 +1064,13 @@ const AdminPage: React.FC = () => {
   }, []);
 
   const handleLogin = async () => {
-    const ok = await login(email, password);
-    if (ok) setAuthenticated(true);
-    else alert("Identifiants incorrects");
-  };
+  const ok = await login(email, password); // utilise login() importé
+  if (ok) setAuthenticated(true);
+  else {
+    alert("Identifiants incorrects");
+    setAuthenticated(false);
+  }
+};
 
   //Loading pendant vérification session
   if (authenticated === null) {
@@ -634,6 +1139,7 @@ export default AdminPage;
  -----------------------------------------------------------------------------------------------------------------
 
  ---fichier dans pages: Projects.tsx
+
 import React from 'react';
 import ProjectGrid from '../components/ProjectGrid';
 import { useStorage } from '../hooks/useStorage';
@@ -651,17 +1157,23 @@ const Projects: React.FC = () => {
 export default Projects;
  -----------------------------------------------------------------------------------------------------------------
 
- ---fichier dans utils: auth.ts ( Logique pour utiliser l'authentification de supabase)
+ ---fichier dans utils: auth.ts ( Logique utiliser l'authentification de supabase)
 
 import { supabase } from '../utils/supabase';
 
 export const login = async (email: string, password: string) => {
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
-  return !error;
+  if (error) {
+    console.error("Supabase login error:", error);
+    return false;
+  }
+
+  console.log("Supabase login success:", data);
+  return true;
 };
 
 export const logout = async () => {
@@ -673,6 +1185,7 @@ export const getUser = async () => {
   return data.user;
 };
 -----------------------------------------------------------------------------------------------------------------
+
 -- fichier dans hooks: supabase.ts (De supabase)
 
 import { createClient } from '@supabase/supabase-js';
@@ -680,17 +1193,99 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
+console.log('Supabase URL:', supabaseUrl);
+console.log('Supabase ANON KEY:', supabaseAnonKey ? 'OK' : 'MANQUANT');
+
 export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey
 );
-
 -----------------------------------------------------------------------------------------------------------------
+
+-------Fichier dans hooks : useAdminProfile.tsx
+import { useEffect, useState } from 'react';
+import { supabase } from '../utils/supabase';
+
+export interface AdminProfile {
+  id: string;
+  name: string | null;
+  avatar: string | null;
+  updated_at: string | null;
+}
+
+export const useAdminProfile = () => {
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  /* ===============================
+     FETCH INITIAL (EFFECT PROPRE)
+     =============================== */
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfile = async () => {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from('admin_profile')
+        .select('id, name, avatar, updated_at')
+        .single();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error('Erreur fetch admin_profile:', error);
+      } else {
+        setProfile(data);
+      }
+
+      setLoading(false);
+    };
+
+    loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  /* ===============================
+     UPDATE PROFILE (NO REFETCH)
+     =============================== */
+  const updateProfile = async (updates: Partial<AdminProfile>) => {
+    if (!profile) return false;
+
+    const payload = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('admin_profile')
+      .update(payload)
+      .eq('id', profile.id);
+
+    if (error) {
+      console.error('Erreur update admin_profile:', error);
+      return false;
+    }
+
+    // ✅ Mise à jour locale (pas de fetch inutile)
+    setProfile(prev => (prev ? { ...prev, ...payload } : prev));
+
+    return true;
+  };
+
+  return { profile, loading, updateProfile };
+};
+-----------------------------------------------------------------------------------------------------------------
+
 -- fichier dans hooks: useStorage.ts (De supabase)
 
 import { useEffect, useState } from 'react';
 import type { Project } from '../data/projects';
 import { supabase } from '../utils/supabase';
+
 
 export const useStorage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -718,6 +1313,24 @@ export const useStorage = () => {
     await supabase.from('projects').delete().eq('id', id);
     fetchProjects();
   };
+  
+ // UPDATE
+const updateProject = async (
+  id: string,
+  updates: Partial<Omit<Project, 'id' | 'created_at'>>
+) => {
+  const { error } = await supabase
+    .from('projects')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) {
+    console.error(error);
+    throw error;
+  }
+
+  fetchProjects();
+};
 
   // STORAGE
   const uploadFile = async (file: File) => {
@@ -738,20 +1351,101 @@ export const useStorage = () => {
     return data.publicUrl;
   };
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
+ useEffect(() => {
+  const fetchData = async () => {
+    await fetchProjects();
+  };
+  fetchData();
+}, []);
 
   return {
     projects,
     getProjects: () => projects,
     saveProject,
     deleteProject,
+    updateProject,
     uploadFile,
     loading
   };
 };
 -----------------------------------------------------------------------------------------------------------------
+
+-------Fichier dans hooks : useAdminProfile.ts
+
+import { useEffect, useState } from 'react';
+import { supabase } from '../utils/supabase';
+
+export type AdminProfile = {
+  id: string;
+  name: string | null;
+  avatar: string | null;
+  updated_at: string | null;
+};
+
+export const useAdminProfile = () => {
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from('admin_profile')
+        .select('id, name, avatar, updated_at')
+        .single();
+
+      if (error) {
+        console.error('Erreur fetch admin_profile:', error);
+      } else {
+        setProfile(data);
+      }
+
+      setLoading(false);
+    };
+
+    fetchProfile();
+  }, []);
+
+  const updateProfile = async (updates: Partial<AdminProfile>) => {
+    if (!profile) return;
+
+    const { error } = await supabase
+      .from('admin_profile')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profile.id);
+
+    if (error) {
+      console.error('Erreur update admin_profile:', error);
+      throw error;
+    }
+
+    setProfile(prev => (prev ? { ...prev, ...updates } : prev));
+  };
+
+  const uploadAvatar = async (file: File): Promise<string> => {
+    const path = `admin-avatar/avatar-${Date.now()}`;
+
+    const { error } = await supabase.storage
+      .from('admin-avatar')
+      .upload(path, file, { upsert: true });
+
+    if (error) throw error;
+
+    const { data } = supabase.storage
+      .from('admin-avatar')
+      .getPublicUrl(path);
+
+    return data.publicUrl;
+  };
+
+  return { profile, loading, updateProfile, uploadAvatar };
+};
+-----------------------------------------------------------------------------------------------------------------
+
 -- fichier dans hooks: useUpload.ts (De supabase)
 
 import { supabase } from '../utils/supabase';
@@ -774,6 +1468,7 @@ export const uploadFile = async (file: File) => {
 -----------------------------------------------------------------------------------------------------------------
 
  ---fichier dans data: projets.ts
+
 export interface Project {
   id: string;
   title: string;
@@ -836,7 +1531,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
 
  ---fichier dans src : index.css
 
- @tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -866,6 +1561,20 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
 .transform-style-preserve-3d { transform-style: preserve-3d; }
 .backface-hidden { backface-visibility: hidden; }
 .rotate-y-180 { transform: rotateY(180deg); }
+
+
+.admin-input {
+  background-color: transparent;
+  border: 1px solid var(--glass);
+  color: white;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  outline: none;
+}
+
+.admin-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
 -----------------------------------------------------------------------------------------------------------------
 
  ---fichier dans .env
@@ -923,4 +1632,5 @@ VITE_SUPABASE_ANON_KEY=xxxxx
     "vite": "npm:rolldown-vite@7.2.5"
   }
 }
+
 

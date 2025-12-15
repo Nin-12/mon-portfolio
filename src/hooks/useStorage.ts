@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import type { Project } from '../data/projects';
 import { supabase } from '../utils/supabase';
 
-
 export const useStorage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,16 +17,47 @@ export const useStorage = () => {
     setLoading(false);
   };
 
-  // CREATE
+  // CREATE (ANTI-DOUBLON)
   const saveProject = async (project: Omit<Project, 'id' | 'created_at'>) => {
-    await supabase.from('projects').insert(project);
-    fetchProjects();
+    const { error } = await supabase
+      .from('projects')
+      .insert(project);
+
+    if (error) {
+      if (error.code === '23505') {
+        throw new Error('Projet déjà existant');
+      }
+      throw error;
+    }
+
+    await fetchProjects();
+  };
+
+  // UPDATE
+  const updateProject = async (
+    id: string,
+    updates: Partial<Omit<Project, 'id' | 'created_at'>>
+  ) => {
+    const { error } = await supabase
+      .from('projects')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await fetchProjects();
   };
 
   // DELETE
   const deleteProject = async (id: string) => {
-    await supabase.from('projects').delete().eq('id', id);
-    fetchProjects();
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await fetchProjects();
   };
 
   // STORAGE
@@ -58,10 +88,10 @@ export const useStorage = () => {
 
   return {
     projects,
-    getProjects: () => projects,
     saveProject,
+    updateProject,
     deleteProject,
     uploadFile,
-    loading
+    loading,
   };
 };

@@ -28,3 +28,17 @@
 .transform-style-preserve-3d { transform-style: preserve-3d; }
 .backface-hidden { backface-visibility: hidden; }
 .rotate-y-180 { transform: rotateY(180deg); }
+
+
+.admin-input {
+  background-color: transparent;
+  border: 1px solid var(--glass);
+  color: white;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  outline: none;
+}
+
+.admin-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}

@@ -1,157 +1,266 @@
-import { logout } from '../utils/auth';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
+import { logout } from '../utils/auth';
 import { useStorage } from '../hooks/useStorage';
-import { useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-
+import AdminProfileForm from './AdminProfileForm';
+import type { Project } from '../data/projects';
+import { notify } from '../utils/notify';
 
 const AdminPanel: React.FC = () => {
   useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
+  let mounted = true;
+
+  const guard = async () => {
+    const { data } = await supabase.auth.getUser();
+
+    if (!mounted) return;
+
     if (!data.user) {
-      window.location.href = '/';
+      window.location.href = '/admin';
     }
-  });
+  };
+
+  guard();
+
+  return () => {
+    mounted = false;
+  };
 }, []);
 
-  const { projects, saveProject, deleteProject, uploadFile } = useStorage();
+
+  const {
+    projects,
+    saveProject,
+    updateProject,
+    deleteProject,
+    uploadFile,
+  } = useStorage();
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [images, setImages] = useState<File[]>([]);
   const [pdf, setPdf] = useState<File | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!title || !category) {
-      alert('Titre et catégorie obligatoires');
-      return;
-    }
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-    const thumbnailUrl = thumbnail
-      ? await uploadFile(thumbnail)
-      : undefined;
+  /* ===================== EDIT ===================== */
+  const handleEdit = (project: Project) => {
+    setEditingId(project.id);
+    setTitle(project.title);
+    setCategory(project.category ?? '');
+    setDescription(project.description ?? '');
+    setGithubUrl(project.github_url ?? '');
+  };
 
-    const imagesUrls: string[] = [];
-    for (const img of images) {
-      imagesUrls.push(await uploadFile(img));
-    }
-
-    const pdfUrl = pdf ? await uploadFile(pdf) : undefined;
-
-    // ⚠️ IMPORTANT : on n’utilise PAS le type Project complet
-    await saveProject({
-      title,
-      category,
-      description,
-      thumbnail: thumbnailUrl,
-      images: imagesUrls,
-      pdf: pdfUrl,
-    });
-
-    alert('Projet ajouté !');
-
-    // Reset form
+  /* ===================== RESET ===================== */
+  const resetForm = () => {
+    setEditingId(null);
     setTitle('');
     setCategory('');
     setDescription('');
+    setGithubUrl('');
     setThumbnail(null);
     setImages([]);
     setPdf(null);
+    setError(null);
+  };
+
+  /* ===================== SUBMIT ===================== */
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!title.trim() || !category.trim()) {
+      setError('Titre et catégorie sont obligatoires');
+      return;
+    }
+
+    if (!editingId && !thumbnail) {
+      setError('La miniature est obligatoire pour un nouveau projet');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const thumbnailUrl = thumbnail
+        ? await uploadFile(thumbnail)
+        : undefined;
+
+      const imagesUrls =
+        images.length > 0
+          ? (await Promise.all(images.map(uploadFile))).slice(0, 6)
+          : [];
+
+      const pdfUrl = pdf ? await uploadFile(pdf) : undefined;
+
+      if (editingId) {
+        await updateProject(editingId, {
+          title,
+          category,
+          description,
+          github_url: githubUrl || undefined,
+          thumbnail: thumbnailUrl,
+          images: imagesUrls,
+          pdf: pdfUrl,
+        });
+        notify('Projet modifié avec succès');
+      } else {
+        await saveProject({
+          title,
+          category,
+          description,
+          github_url: githubUrl || undefined,
+          thumbnail: thumbnailUrl!,
+          images: imagesUrls,
+          pdf: pdfUrl,
+        });
+        notify('Projet ajouté avec succès');
+      }
+
+      resetForm();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Erreur lors de l’enregistrement');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <section className="p-6">
-      <h2 className="text-2xl font-bold mb-4">
-        Admin Panel - Ajouter un projet
-      </h2>
-
       <button
-          onClick={async () => {
-            await logout();
-            window.location.href = '/';
-          }}
-          className="mb-4 px-4 py-2 rounded bg-red-500 text-white font-bold hover:bg-red-600 transition"
-        >
-          Se déconnecter
+        onClick={async () => {
+          await logout();
+          window.location.href = '/';
+        }}
+        className="mb-4 px-4 py-2 rounded bg-red-500 text-white font-bold"
+      >
+        Se déconnecter
       </button>
 
-      <form className="flex flex-col gap-3 mb-6" onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Titre"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
-        />
+      {/* PROFIL ADMIN */}
+      <AdminProfileForm />
 
-        <input
-          type="text"
-          placeholder="Catégorie"
-          value={category}
-          onChange={e => setCategory(e.target.value)}
-          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
-        />
+      {/* FORM PROJET */}
+      <div className="p-4 border rounded-xl mb-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 mb-6">
+          {error && (
+            <p className="text-red-500 text-sm font-semibold">{error}</p>
+          )}
 
-        <textarea
-          placeholder="Description"
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          className="p-2 rounded bg-[var(--glass)] border border-[var(--accent)]"
-        />
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Titre *"
+            className="admin-input"
+          />
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            e.target.files && setThumbnail(e.target.files[0])
-          }
-        />
+          <input
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            placeholder="Catégorie *"
+            className="admin-input"
+          />
 
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            e.target.files && setImages(Array.from(e.target.files))
-          }
-        />
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Description"
+            className="admin-input"
+          />
 
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            e.target.files && setPdf(e.target.files[0])
-          }
-        />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              e.target.files && setThumbnail(e.target.files[0])
+            }
+            className="admin-input"
+          />
 
-        <button
-          type="submit"
-          className="bg-[var(--accent)] px-4 py-2 rounded text-[#061019] font-bold hover:bg-yellow-500 transition"
-        >
-          Ajouter
-        </button>
-      </form>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              if (e.target.files) {
+                setImages(Array.from(e.target.files).slice(0, 6));
+              }
+            }}
+            className="admin-input"
+          />
 
-      <h3 className="text-xl font-bold mb-2">Projets existants</h3>
-      <ul className="space-y-2">
-        {projects.map(p => (
-          <li
-            key={p.id}
-            className="flex justify-between items-center p-2 bg-[var(--card)] rounded"
+          <input
+            value={githubUrl}
+            onChange={e => setGithubUrl(e.target.value)}
+            placeholder="Lien GitHub (optionnel)"
+            className="admin-input"
+          />
+
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              e.target.files && setPdf(e.target.files[0])
+            }
+            className="admin-input"
+          />
+
+          <button
+            disabled={submitting}
+            className={`bg-[var(--accent)] text-[#061019] font-bold px-6 py-3 rounded-lg shadow-lg transition
+              ${submitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-500'}`}
           >
-            <span>{p.title}</span>
+            {submitting
+              ? 'Enregistrement…'
+              : editingId
+              ? 'Mettre à jour'
+              : 'Ajouter'}
+          </button>
+        </form>
+      </div>
+
+      {/* LISTE PROJETS */}
+      <h3 className="text-xl font-bold mb-2">Projets existants</h3>
+
+      {projects.map(project => (
+        <div
+          key={project.id}
+          className="flex justify-between items-center mb-2"
+        >
+          <span>{project.title}</span>
+
+          <div className="flex gap-2">
+            <button
+              className="text-yellow-500"
+              onClick={() => handleEdit(project)}
+            >
+              Modifier
+            </button>
+
             <button
               className="text-red-500"
-              onClick={() => deleteProject(p.id)}
+              onClick={async () => {
+                await deleteProject(project.id);
+                notify('Projet supprimé');
+              }}
             >
               Supprimer
             </button>
-          </li>
-        ))}
-      </ul>
+          </div>
+        </div>
+      ))}
     </section>
   );
 };

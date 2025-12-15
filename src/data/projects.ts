@@ -6,6 +6,7 @@ export interface Project {
   images: string[];
   thumbnail?: string;
   pdf?: string;
+  github_url?: string;
   created_at: string; // ← Supabase
 }
 
