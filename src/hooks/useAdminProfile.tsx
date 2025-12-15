@@ -4,11 +4,11 @@ import { supabase } from '../utils/supabase';
 export interface AdminProfile {
   id: string;
   name: string | null;
-  avatar: string; // ⬅️ jamais null côté frontend
+  avatar: string; // Jamais null côté frontend
   updated_at: string | null;
 }
 
-// Avatar par défaut (DOIT exister en storage)
+// Avatar par défaut (doit exister dans le storage)
 export const DEFAULT_AVATAR =
   'https://xnrvmdellsdeyiuxvsuv.supabase.co/storage/v1/object/public/admin-avatar/admin-avatar/avatar-1765747463893';
 
@@ -28,6 +28,9 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     let mounted = true;
 
     const loadProfile = async () => {
+      setLoading(true);
+
+      // Lecture publique du profil admin
       const { data, error } = await supabase
         .from('admin_profile')
         .select('id, name, avatar, updated_at')
@@ -41,7 +44,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
       } else {
         setProfile({
           ...data,
-          avatar: data.avatar || DEFAULT_AVATAR, // ✅ NORMALISATION
+          avatar: data.avatar || DEFAULT_AVATAR, // avatar par défaut
         });
       }
 
@@ -55,6 +58,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     };
   }, []);
 
+  // Permet à l'admin de mettre à jour son profil (authentifié)
   const updateProfile = async (
     updates: Partial<AdminProfile>
   ): Promise<boolean> => {
@@ -62,7 +66,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
 
     const payload = {
       ...updates,
-      avatar: updates.avatar || DEFAULT_AVATAR, // ✅ sécurité ultime
+      avatar: updates.avatar || DEFAULT_AVATAR,
       updated_at: new Date().toISOString(),
     };
 
@@ -80,6 +84,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     return true;
   };
 
+  // Upload de l'avatar dans Supabase Storage
   const uploadAvatar = async (file: File): Promise<string> => {
     const path = `admin-avatar/avatar-${Date.now()}`;
 
