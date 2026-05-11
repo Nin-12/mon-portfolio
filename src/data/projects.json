@@ -1,0 +1,14 @@
+[
+  {
+    "id": "1",
+    "title": "Portfolio Web",
+    "description": "Un portfolio interactif pour présenter mes projets.",
+    "category": "Web Development",
+    "images": [
+      "/assets/images/PI.jpg",
+      "/assets/images/portfolio2.png"
+    ],
+    "pdf": "/assets/pdf/portfolio.pdf",
+    "thumbnail": "/assets/images/portfolio-thumb.png"
+  }
+]

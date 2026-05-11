@@ -1,0 +1,314 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   VARIABLES GLOBALES DARK
+========================= */
+:root {
+  --bg: #0f1724;
+  --card: #0b1220;
+  --muted: #9aa6b2;
+  --accent: #f59e0b;
+  --glass: rgba(255,255,255,0.08);
+  --text: #e5e7eb;
+  --hero-from: #0b1220;
+  --hero-to: #0f1724;
+}
+
+/* =========================
+   MODE CLAIR
+========================= */
+html.light {
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --muted: #374151;
+  --accent: #f59e0b;
+  --glass: rgba(0,0,0,0.06);
+  --text: #0f172a;
+  --hero-from: #1e293b;
+  --hero-to: #0f172a;
+}
+
+/* =========================
+   GLOBAL BODY
+========================= */
+body {
+  color: var(--text);
+  background: var(--bg);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* =========================
+   ADMIN INPUT
+========================= */
+.admin-input {
+  background-color: transparent;
+  border: 1px solid var(--glass);
+  color: var(--text);
+  padding: 0.6rem;
+  border-radius: 0.75rem;
+  outline: none;
+  transition: border 0.2s ease, background 0.2s ease;
+  width: 100%;
+}
+
+.admin-input:focus {
+  border-color: var(--accent);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.admin-input::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* =========================
+   FILE INPUT
+========================= */
+input[type="file"] {
+  color: var(--text);
+  background: transparent;
+}
+
+/* =========================
+   FLIP 3D
+========================= */
+.perspective {
+  perspective: 1000px;
+}
+
+.transform-style-preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* =========================
+   TIPTAP EDITOR
+========================= */
+.tiptap-editor {
+  border: 1px solid var(--glass);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: transparent;
+}
+
+.tiptap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--glass);
+  background: rgba(255,255,255,0.02);
+}
+
+.tiptap-toolbar button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--glass);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 32px;
+}
+
+.tiptap-toolbar button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tiptap-toolbar button.is-active {
+  background: var(--accent);
+  color: #061019;
+  border-color: var(--accent);
+}
+
+.tiptap-toolbar .separator {
+  width: 1px;
+  background: var(--glass);
+  margin: 0 4px;
+  align-self: stretch;
+}
+
+/* =========================
+   TIPTAP CONTENT (éditeur admin)
+========================= */
+.tiptap-content {
+  padding: 12px;
+  min-height: 160px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.8;
+  outline: none;
+}
+
+/* paragraphes */
+.tiptap-content p {
+  margin: 0 0 14px;
+}
+
+/* titres */
+.tiptap-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 18px 0 10px;
+}
+
+.tiptap-content h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 16px 0 8px;
+}
+
+.tiptap-content h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 14px 0 6px;
+}
+
+/* listes */
+.tiptap-content ul {
+  list-style: disc;
+  padding-left: 22px;
+  margin: 10px 0 14px;
+}
+
+.tiptap-content ol {
+  list-style: decimal;
+  padding-left: 22px;
+  margin: 10px 0 14px;
+}
+
+.tiptap-content li {
+  margin-bottom: 6px;
+}
+
+/* citation */
+.tiptap-content blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  color: var(--muted);
+  margin: 10px 0;
+}
+
+/* code */
+.tiptap-content code {
+  background: rgba(255,255,255,0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+/* liens */
+.tiptap-content a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* =========================
+   TIPTAP RENDER (ProjectDetail)
+========================= */
+
+.tiptap-render {
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text);
+  max-width: 800px;
+}
+
+/* paragraphes */
+.tiptap-render p {
+  margin: 0 0 14px;
+}
+
+/* cache les paragraphes vides */
+.tiptap-render p:empty {
+  display: none;
+}
+
+/* titres */
+.tiptap-render h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 18px 0 10px;
+}
+
+.tiptap-render h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 18px 0 10px;
+}
+
+.tiptap-render h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 14px 0 8px;
+}
+
+/* listes */
+.tiptap-render ul {
+  list-style: disc;
+  padding-left: 22px;
+  margin: 10px 0 14px;
+}
+
+.tiptap-render ol {
+  list-style: decimal;
+  padding-left: 22px;
+  margin: 10px 0 14px;
+}
+
+.tiptap-render li {
+  margin-bottom: 6px;
+}
+
+/* citation */
+.tiptap-render blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  color: var(--muted);
+  margin: 10px 0;
+}
+
+/* code */
+.tiptap-render code {
+  background: rgba(255,255,255,0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+/* liens */
+.tiptap-render a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* styles texte */
+.tiptap-render strong {
+  font-weight: 700;
+}
+
+.tiptap-render em {
+  font-style: italic;
+}
+
+.tiptap-render u {
+  text-decoration: underline;
+}
+
+.tiptap-render s {
+  text-decoration: line-through;
+}
