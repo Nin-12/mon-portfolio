@@ -30,17 +30,13 @@ const Header: React.FC = () => {
             À propos
           </Link>
 
-          <Link to="/admin" className="hover:text-[var(--accent)] transition">
-            Admin
-          </Link>
-
-          {/* THEME */}
           <button
             onClick={toggle}
             className="ml-2 p-2 rounded-lg border border-[var(--glass)] hover:bg-[var(--glass)] transition"
+            aria-label="Changer le thème"
           >
             {dark ? (
-              <Sun size={18} className="text-[var(--accent)]" />
+              <Sun  size={18} className="text-[var(--accent)]" />
             ) : (
               <Moon size={18} className="text-[var(--muted)]" />
             )}
@@ -48,7 +44,11 @@ const Header: React.FC = () => {
 
         </nav>
 
-        <button className="md:hidden" onClick={() => setIsOpen(true)}>
+        <button
+          className="md:hidden"
+          onClick={() => setIsOpen(true)}
+          aria-label="Ouvrir le menu"
+        >
           <span className="material-icons text-[var(--accent)]">menu</span>
         </button>
 
