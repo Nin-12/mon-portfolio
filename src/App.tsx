@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import {
   BrowserRouter as Router,
   Routes,
@@ -13,9 +13,10 @@ import Footer        from './components/Footer';
 import Home          from './components/Home';
 import Projects      from './pages/Projects';
 import AboutPage     from './pages/AboutPage';
-import AdminPage     from './pages/AdminPage';
 import NotFoundPage  from './pages/NotFoundPage';
 import ProjectDetail from './pages/ProjectDetail';
+
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 
 const ADMIN_PATH: string =
   import.meta.env.VITE_ADMIN_PATH ?? 'admin';
@@ -58,6 +59,12 @@ const useSecretAccess = () => {
   }, [navigate]);
 };
 
+const AdminFallback = () => (
+  <div className="flex justify-center items-center min-h-screen text-[var(--muted)]">
+    Chargement…
+  </div>
+);
+
 const AnimatedRoutes = () => {
   const location = useLocation();
   useSecretAccess();
@@ -77,8 +84,15 @@ const AnimatedRoutes = () => {
           <Route path="/projects"     element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/about"        element={<AboutPage />} />
-          <Route path={`/${ADMIN_PATH}`} element={<AdminPage />} />
-          <Route path="*"             element={<NotFoundPage />} />
+          <Route
+            path={`/${ADMIN_PATH}`}
+            element={
+              <Suspense fallback={<AdminFallback />}>
+                <AdminPage />
+              </Suspense>
+            }
+          />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </motion.main>
     </AnimatePresence>
