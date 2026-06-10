@@ -1,10 +1,12 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
+  // ✅ Purge tous les fichiers TSX/TS pour supprimer le CSS non utilisé en prod
   content: [
-    "./src/**/*.{js,ts,jsx,tsx}",
+    './index.html',
+    './src/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {},
   },
   plugins: [],
-}
+};

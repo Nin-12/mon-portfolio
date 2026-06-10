@@ -27,4 +27,5 @@ dist-ssr
 .env
 .env.*
 .env.local
+stats.html
 src/hooks/useStorages.txt

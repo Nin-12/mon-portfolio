@@ -312,3 +312,103 @@ input[type="file"] {
 .tiptap-render s {
   text-decoration: line-through;
 }
+
+/* =========================
+   FIX DARK / LIGHT #9
+========================= */
+
+/* Cartes en mode light */
+html.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Glass en mode light */
+html.light .border-\[var\(--glass\)\] {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Texte des inputs en light */
+html.light .admin-input {
+  color: var(--text);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+html.light .admin-input:focus {
+  border-color: var(--accent);
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* TipTap en light */
+html.light .tiptap-content,
+html.light .tiptap-render {
+  color: var(--text);
+}
+
+html.light .tiptap-editor {
+  background: var(--card);
+}
+
+html.light .tiptap-toolbar {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+html.light .tiptap-toolbar button {
+  color: var(--text);
+}
+
+/* Skeleton en light */
+html.light .animate-pulse,
+html.light [class*="bg-white/5"] {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Toast en light */
+html.light #toast-container > div {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* =========================
+   OPTIMISATION LCP / CLS
+========================= */
+
+/* font-display swap pour éviter CLS typographique */
+@font-face {
+  font-display: swap;
+}
+
+/* Dimensions fixes avatar → évite CLS */
+.avatar-fixed {
+  width: 160px;
+  height: 160px;
+  min-width: 160px;
+  min-height: 160px;
+}
+
+/* Réserve la hauteur des stat-cards → évite CLS */
+.stat-card-fixed {
+  min-height: 110px;
+}
+
+/* Image lazy → dimensions fixes pour éviter le saut */
+img[loading="lazy"] {
+  min-height: 1px;
+}
+
+/* Stabilise le footer */
+footer {
+  min-height: 80px;
+  contain: layout style;
+}
+
+/* Stabilise la nav desktop */
+nav.hidden {
+  min-height: 40px;
+}
+
+:root {
+  --soc: #22d3ee; /* cyan-400 */
+}
+
+html.light {
+  --soc: #0891b2; /* cyan-600 */
+}

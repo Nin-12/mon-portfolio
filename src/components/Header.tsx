@@ -1,3 +1,4 @@
+// src/components/Header.tsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
@@ -16,32 +17,25 @@ const Header: React.FC = () => {
           Lightning
         </Link>
 
-        <nav className="hidden md:flex gap-6 items-center">
-
-          <Link to="/" className="hover:text-[var(--accent)] transition">
-            Accueil
-          </Link>
-
-          <Link to="/projects" className="hover:text-[var(--accent)] transition">
-            Projets
-          </Link>
-
-          <Link to="/about" className="hover:text-[var(--accent)] transition">
-            À propos
-          </Link>
+        {/* Nav desktop — min-height fixe pour éviter CLS */}
+        <nav
+          className="hidden md:flex gap-6 items-center"
+          style={{ minHeight: '40px' }}
+        >
+          <Link to="/"        className="hover:text-[var(--accent)] transition">Accueil</Link>
+          <Link to="/projects" className="hover:text-[var(--accent)] transition">Projets</Link>
+          <Link to="/about"   className="hover:text-[var(--accent)] transition">À propos</Link>
 
           <button
             onClick={toggle}
             className="ml-2 p-2 rounded-lg border border-[var(--glass)] hover:bg-[var(--glass)] transition"
             aria-label="Changer le thème"
           >
-            {dark ? (
-              <Sun  size={18} className="text-[var(--accent)]" />
-            ) : (
-              <Moon size={18} className="text-[var(--muted)]" />
-            )}
+            {dark
+              ? <Sun  size={18} className="text-[var(--accent)]" />
+              : <Moon size={18} className="text-[var(--muted)]" />
+            }
           </button>
-
         </nav>
 
         <button
@@ -51,7 +45,6 @@ const Header: React.FC = () => {
         >
           <span className="material-icons text-[var(--accent)]">menu</span>
         </button>
-
       </div>
 
       <Sidebar isOpen={isOpen} onClose={() => setIsOpen(false)} />

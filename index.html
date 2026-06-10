@@ -1,10 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>portfolio</title>
+    <title>Portfolio</title>
+
+    <!-- Préconnexion Supabase pour réduire le TTFB -->
+    <link rel="preconnect" href="https://xnrvmdellsdeyiuxvsuv.supabase.co" crossorigin />
+
+    <!-- font-display:swap pour éviter le CLS des polices -->
+    <style>
+      /* Réserve la hauteur du header dès le premier paint */
+      header { min-height: 64px; }
+      /* Réserve la hauteur du footer */
+      footer { min-height: 88px; }
+      /* Empêche le flash blanc au chargement en mode dark (défaut) */
+      html { background-color: #0f1724; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
