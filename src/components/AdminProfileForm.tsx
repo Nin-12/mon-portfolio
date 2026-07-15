@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAdminProfile } from '../hooks/useAdminProfile';
 import type { Certification, Skill, TimelineItem } from '../hooks/useAdminProfile';
 import {
-  Trash2, Award, Plus, X, Pencil, Check,
+  Trash2, Award, Plus, X, Pencil, Check, ChevronUp, ChevronDown,
   Network, Server, Shield, Code2, Globe, Wrench, Users,
 } from 'lucide-react';
 import { notify } from '../utils/notify';
@@ -31,7 +31,7 @@ const AdminProfileForm: React.FC = () => {
   const {
     profile, loading, updateProfile, uploadAvatar, DEFAULT_AVATAR,
     certifications, certsLoading,
-    addCertification, updateCertification, deleteCertification,
+    addCertification, updateCertification, deleteCertification, moveCertification,
     skills, skillsLoading,
     addSkill, updateSkill, deleteSkill,
     timeline, timelineLoading,
@@ -138,6 +138,7 @@ const AdminProfileForm: React.FC = () => {
       title: certTitle.trim(), issuer: certIssuer.trim(),
       badge_url: certBadgeUrl.trim() || null,
       link_url:  certLinkUrl.trim()  || null,
+      sort_order: certifications.length,
     });
     setCertTitle(''); setCertIssuer(''); setCertBadgeUrl(''); setCertLinkUrl('');
     setCertAdding(false);
@@ -326,14 +327,14 @@ const AdminProfileForm: React.FC = () => {
           </button>
         </div>
 
-        {/* Liste */}
+        {/* Liste — déjà triée par sort_order via le hook */}
         {certsLoading
           ? <p className="text-sm text-[var(--muted)]">Chargement…</p>
           : certifications.length === 0
             ? <p className="text-sm text-[var(--muted)] italic">Aucune certification.</p>
             : (
               <div className="flex flex-col gap-2">
-                {certifications.map((cert: Certification) => (
+                {certifications.map((cert: Certification, index: number) => (
                   <div key={cert.id} className="flex flex-col gap-2 p-3 rounded-xl border border-[var(--glass)] bg-[var(--bg)]">
                     {editingCert?.id === cert.id ? (
                       <div className="flex flex-col gap-2">
@@ -359,7 +360,26 @@ const AdminProfileForm: React.FC = () => {
                             {cert.link_url && <p className="text-xs text-cyan-400 truncate max-w-[180px]">{cert.link_url}</p>}
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
+                          {/* Réordonnancement */}
+                          <div className="flex flex-col">
+                            <button
+                              onClick={() => moveCertification(cert.id, 'up')}
+                              disabled={index === 0}
+                              className="text-[var(--muted)] hover:text-[var(--text)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Monter"
+                            >
+                              <ChevronUp size={15} />
+                            </button>
+                            <button
+                              onClick={() => moveCertification(cert.id, 'down')}
+                              disabled={index === certifications.length - 1}
+                              className="text-[var(--muted)] hover:text-[var(--text)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              title="Descendre"
+                            >
+                              <ChevronDown size={15} />
+                            </button>
+                          </div>
                           <button onClick={() => setEditingCert(cert)}  className="text-yellow-400 hover:text-yellow-500 p-1"><Pencil size={15} /></button>
                           <button onClick={() => setCertToDelete(cert)} className="text-red-400 hover:text-red-500 p-1"><Trash2 size={15} /></button>
                         </div>

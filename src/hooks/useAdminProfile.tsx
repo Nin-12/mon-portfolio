@@ -15,6 +15,7 @@ export interface Certification {
   issuer: string;
   badge_url: string | null;
   link_url?: string | null;
+  sort_order: number;
   created_at: string | null;
 }
 
@@ -55,6 +56,7 @@ interface UseAdminProfileReturn {
   addCertification: (cert: Omit<Certification, 'id' | 'created_at'>) => Promise<boolean>;
   updateCertification: (id: string, updates: Partial<Omit<Certification, 'id' | 'created_at'>>) => Promise<boolean>;
   deleteCertification: (id: string) => Promise<boolean>;
+  moveCertification: (id: string, direction: 'up' | 'down') => Promise<boolean>;
   addSkill: (skill: Omit<Skill, 'id'>) => Promise<boolean>;
   updateSkill: (id: string, updates: Partial<Omit<Skill, 'id'>>) => Promise<boolean>;
   deleteSkill: (id: string) => Promise<boolean>;
@@ -82,7 +84,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     const loadAll = async () => {
       const [profileRes, certsRes, skillsRes, timelineRes, projectsRes] = await Promise.all([
         supabase.from('admin_profile').select('id, name, avatar, updated_at').single(),
-        supabase.from('certifications').select('*').order('created_at', { ascending: false }),
+        supabase.from('certifications').select('*').order('sort_order', { ascending: true }),
         supabase.from('skills').select('*').order('sort_order', { ascending: true }),
         supabase.from('timeline').select('*').order('sort_order', { ascending: true }),
         supabase.from('projects').select('id', { count: 'exact', head: true }),
@@ -152,7 +154,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
   const addCertification = useCallback(async (cert: Omit<Certification, 'id' | 'created_at'>): Promise<boolean> => {
     const { data, error } = await supabase.from('certifications').insert(cert).select().single();
     if (error) { notify('Erreur ajout certification', 'error'); return false; }
-    setCertifications(prev => [data, ...prev]);
+    setCertifications(prev => [...prev, data].sort((a, b) => a.sort_order - b.sort_order));
     notify('Certification ajoutée ✓', 'success');
     return true;
   }, []);
@@ -172,6 +174,37 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     notify('Certification supprimée', 'info');
     return true;
   }, []);
+
+  // ── Réordonner une certification (échange sort_order avec le voisin) ──
+  const moveCertification = useCallback(async (id: string, direction: 'up' | 'down'): Promise<boolean> => {
+    const sorted = [...certifications].sort((a, b) => a.sort_order - b.sort_order);
+    const index = sorted.findIndex(c => c.id === id);
+    if (index === -1) return false;
+
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= sorted.length) return false; // déjà en haut/bas de la liste
+
+    const current = sorted[index];
+    const target = sorted[swapIndex];
+
+    const [{ error: err1 }, { error: err2 }] = await Promise.all([
+      supabase.from('certifications').update({ sort_order: target.sort_order }).eq('id', current.id),
+      supabase.from('certifications').update({ sort_order: current.sort_order }).eq('id', target.id),
+    ]);
+
+    if (err1 || err2) { notify('Erreur lors du réordonnancement', 'error'); return false; }
+
+    setCertifications(prev =>
+      prev
+        .map(c => {
+          if (c.id === current.id) return { ...c, sort_order: target.sort_order };
+          if (c.id === target.id) return { ...c, sort_order: current.sort_order };
+          return c;
+        })
+        .sort((a, b) => a.sort_order - b.sort_order)
+    );
+    return true;
+  }, [certifications]);
 
   // ── CRUD Skills ───────────────────────────────────────────
   const addSkill = useCallback(async (skill: Omit<Skill, 'id'>): Promise<boolean> => {
@@ -230,7 +263,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     timeline, timelineLoading,
     projectCount,
     updateProfile, uploadAvatar,
-    addCertification, updateCertification, deleteCertification,
+    addCertification, updateCertification, deleteCertification, moveCertification,
     addSkill, updateSkill, deleteSkill,
     addTimeline, updateTimeline, deleteTimeline,
     DEFAULT_AVATAR,
