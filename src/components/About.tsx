@@ -44,11 +44,16 @@ const About: React.FC = () => {
     skills, skillsLoading,
     timeline, timelineLoading,
     projectCount,
+    formationYears, formationYearsLoading,
   } = useAdminProfile();
 
   /* Stats dynamiques */
   const stats = [
-    { value: `${timeline.filter(t => t.active).length > 0 ? '3+' : '3+'}`, label: 'Années de formation',     icon: <GraduationCap size={22} /> },
+    {
+      value: formationYearsLoading ? '…' : `BAC+${formationYears}`,
+      label: 'Niveau de formation',
+      icon: <GraduationCap size={22} />,
+    },
     { value: skills.length || '7',  label: 'Domaines de compétences', icon: <BookOpen size={22} /> },
     { value: `${projectCount}`,     label: 'Projets réalisés',         icon: <Trophy size={22} /> },
     { value: certsLoading ? '…' : certifications.length, label: 'Certifications obtenues', icon: <Award size={22} /> },
@@ -111,7 +116,6 @@ const About: React.FC = () => {
               whileHover={{ scale: 1.06 }}
               transition={{ duration: 0.3 }}
             />
-            {/* <span className="absolute bottom-2 right-2 w-4 h-4 bg-emerald-400 rounded-full border-2 border-[var(--bg)] shadow-lg shadow-emerald-400/50" /> */}
           </motion.div>
 
           {/* Bio */}
@@ -239,7 +243,6 @@ const About: React.FC = () => {
               <motion.div className="flex flex-col gap-7" variants={stagger}>
                 {timeline.map((item, index) => (
                   <motion.div key={item.id ?? index} className="flex items-start gap-6" variants={fadeLeft}>
-                    {/* Dot — FIX #10 : isolé dans son conteneur, ne touche plus la photo */}
                     <div className="relative flex-shrink-0 w-[14px] mt-1">
                       {item.active && (
                         <motion.span
@@ -254,7 +257,6 @@ const About: React.FC = () => {
                           : 'bg-[var(--bg)] border-[var(--glass)]'
                       }`} />
                     </div>
-                    {/* Carte */}
                     <motion.div
                       className="flex-1 p-5 rounded-2xl border border-[var(--glass)] bg-[var(--card)] group relative overflow-hidden"
                       whileHover={{ scale: 1.015, y: -3 }} transition={{ duration: 0.25 }}

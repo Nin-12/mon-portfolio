@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAdminProfile } from '../hooks/useAdminProfile';
 import type { Certification, Skill, TimelineItem } from '../hooks/useAdminProfile';
 import {
-  Trash2, Award, Plus, X, Pencil, Check, ChevronUp, ChevronDown,
+  Trash2, Award, Plus, X, Pencil, Check, ChevronUp, ChevronDown, BarChart3, Eye,
   Network, Server, Shield, Code2, Globe, Wrench, Users,
 } from 'lucide-react';
 import { notify } from '../utils/notify';
@@ -46,6 +46,18 @@ const AdminProfileForm: React.FC = () => {
   const fileRef               = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (profile) setName(profile.name ?? ''); }, [profile]);
+
+  /* ── Analytics (Google Analytics + Microsoft Clarity) ── */
+  const [gaId, setGaId]                       = useState('');
+  const [clarityId, setClarityId]             = useState('');
+  const [analyticsSaving, setAnalyticsSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setGaId(profile.ga_measurement_id ?? '');
+      setClarityId(profile.clarity_project_id ?? '');
+    }
+  }, [profile]);
 
   /* ── Certifications ── */
   const [certTitle,    setCertTitle]    = useState('');
@@ -129,6 +141,23 @@ const AdminProfileForm: React.FC = () => {
   };
 
   const currentAvatar = preview || profile.avatar;
+
+  /* ── Analytics ── */
+  const handleSaveAnalytics = async () => {
+    setAnalyticsSaving(true);
+    const trimmedGa = gaId.trim();
+    const trimmedClarity = clarityId.trim();
+    const ok = await updateProfile({
+      ga_measurement_id: trimmedGa || null,
+      clarity_project_id: trimmedClarity || null,
+    });
+    if (ok) {
+      notify('Paramètres analytics mis à jour ✓', 'success');
+    } else {
+      notify('Erreur lors de la mise à jour', 'error');
+    }
+    setAnalyticsSaving(false);
+  };
 
   /* ── Certifications ── */
   const handleAddCert = async () => {
@@ -305,6 +334,70 @@ const AdminProfileForm: React.FC = () => {
         </div>
       </div>
 
+      {/* ══════════ Analytics (Google Analytics + Microsoft Clarity) ══════════ */}
+      <div className="p-5 border border-[var(--glass)] rounded-2xl bg-[var(--card)]">
+        <h3 className="text-lg font-bold mb-2 text-[var(--text)] flex items-center gap-2">
+          <BarChart3 size={20} className="text-cyan-400" /> Analytics
+        </h3>
+        <p className="text-xs text-[var(--muted)] mb-4">
+          Configure le suivi d&apos;audience du site public (visiteurs, pages vues, appareils, provenance...).
+          Laisse un champ vide puis sauvegarde pour désactiver l&apos;outil correspondant.
+        </p>
+
+        <div className="flex flex-col gap-4">
+          {/* Google Analytics 4 */}
+          <div>
+            <label className="text-xs text-[var(--muted)] mb-1 block">
+              Google Analytics 4 — ID de mesure
+            </label>
+            <input
+              className="admin-input"
+              placeholder="G-XXXXXXXXXX"
+              value={gaId}
+              onChange={e => setGaId(e.target.value)}
+            />
+            <p className="text-[11px] text-[var(--muted)] mt-1">
+              Disponible dans Google Analytics → Admin → Flux de données.
+            </p>
+          </div>
+
+          {/* Microsoft Clarity */}
+          <div>
+            <label className="text-xs text-[var(--muted)] mb-1 flex items-center gap-1">
+              <Eye size={12} /> Microsoft Clarity — ID de projet
+            </label>
+            <input
+              className="admin-input"
+              placeholder="ex: abcd1234ef"
+              value={clarityId}
+              onChange={e => setClarityId(e.target.value)}
+            />
+            <p className="text-[11px] text-[var(--muted)] mt-1">
+              Disponible dans Clarity → Paramètres → Configuration (Project ID).
+            </p>
+          </div>
+
+          <button
+            onClick={handleSaveAnalytics}
+            disabled={analyticsSaving}
+            className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-2 rounded-lg hover:bg-yellow-500 transition disabled:opacity-60 self-start"
+          >
+            {analyticsSaving ? 'Sauvegarde…' : 'Sauvegarder les paramètres analytics'}
+          </button>
+        </div>
+
+        {(profile.ga_measurement_id || profile.clarity_project_id) && (
+          <div className="mt-3 flex flex-col gap-1">
+            {profile.ga_measurement_id && (
+              <p className="text-xs text-emerald-400">✓ Google Analytics actif ({profile.ga_measurement_id})</p>
+            )}
+            {profile.clarity_project_id && (
+              <p className="text-xs text-emerald-400">✓ Microsoft Clarity actif ({profile.clarity_project_id})</p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ══════════ Certifications ══════════ */}
       <div className="p-5 border border-[var(--glass)] rounded-2xl bg-[var(--card)]">
         <h3 className="text-lg font-bold mb-4 text-[var(--text)]">
@@ -470,9 +563,13 @@ const AdminProfileForm: React.FC = () => {
 
       {/* ══════════ Parcours académique ══════════ */}
       <div className="p-5 border border-[var(--glass)] rounded-2xl bg-[var(--card)]">
-        <h3 className="text-lg font-bold mb-4 text-[var(--text)]">
+        <h3 className="text-lg font-bold mb-2 text-[var(--text)]">
           Parcours académique <span className="ml-2 text-sm font-normal text-[var(--muted)]">({timeline.length})</span>
         </h3>
+        <p className="text-xs text-[var(--muted)] mb-4">
+          Le niveau « BAC+X » affiché sur le site public est calculé automatiquement à partir du nom du diplôme
+          (ex : « Licence » → BAC+3, « Master 1 » → BAC+4, « Master 2 » → BAC+5) — rien à saisir manuellement.
+        </p>
 
         <div className="flex flex-col gap-2 mb-4 p-4 rounded-xl border border-[var(--glass)] bg-[var(--bg)]">
           <p className="text-sm font-semibold text-[var(--muted)] mb-1">Ajouter une entrée</p>
@@ -527,11 +624,17 @@ const AdminProfileForm: React.FC = () => {
                       <div>
                         <p className="text-sm font-semibold text-[var(--text)]">{item.degree}</p>
                         <p className="text-xs text-[var(--muted)]">{item.year} · {item.school}</p>
-                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${item.badge_color}`}>{item.badge}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${item.badge_color}`}>{item.badge}</span>
+                          {typeof item.bac_level === 'number' && (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/25">
+                              BAC+{item.bac_level}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
                         <button onClick={() => setEditingTl(item)}      className="text-yellow-400 hover:text-yellow-500 p-1"><Pencil size={15} /></button>
-                        {/* ← Ouvre la modale au lieu de supprimer directement */}
                         <button onClick={() => setTlToDelete(item)}     className="text-red-400 hover:text-red-500 p-1"><Trash2 size={15} /></button>
                       </div>
                     </div>

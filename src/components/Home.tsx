@@ -38,6 +38,7 @@ const Home: React.FC = () => {
     skills,
     timeline, timelineLoading,
     projectCount,
+    formationYears, formationYearsLoading,
   } = useAdminProfile();
 
   /* Préfère projectCount (realtime) sinon longueur locale */
@@ -49,8 +50,8 @@ const Home: React.FC = () => {
   /* Stats dynamiques */
   const stats = useMemo(() => [
     {
-      value: '3+',
-      label: 'Années de formation',
+      value: formationYearsLoading ? '…' : `BAC+${formationYears}`,
+      label: 'Niveau de formation',
       icon: <GraduationCap size={22} />,
     },
     {
@@ -68,7 +69,7 @@ const Home: React.FC = () => {
       label: 'Certifications obtenues',
       icon: <Award size={22} />,
     },
-  ], [skills.length, projCount, certsLoading, certifications.length]);
+  ], [skills.length, projCount, certsLoading, certifications.length, formationYears, formationYearsLoading]);
 
   return (
     <div className="container mx-auto px-4 pb-12">

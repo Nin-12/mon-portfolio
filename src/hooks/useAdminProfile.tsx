@@ -6,6 +6,8 @@ export interface AdminProfile {
   id: string;
   name: string | null;
   avatar: string;
+  ga_measurement_id: string | null;
+  clarity_project_id: string | null;
   updated_at: string | null;
 }
 
@@ -36,6 +38,7 @@ export interface TimelineItem {
   badge_color: string;
   active: boolean;
   sort_order: number;
+  bac_level?: number | null;
 }
 
 export const DEFAULT_AVATAR =
@@ -51,6 +54,8 @@ interface UseAdminProfileReturn {
   timeline: TimelineItem[];
   timelineLoading: boolean;
   projectCount: number;
+  formationYears: number;
+  formationYearsLoading: boolean;
   updateProfile: (updates: Partial<AdminProfile>) => Promise<boolean>;
   uploadAvatar: (file: File) => Promise<string>;
   addCertification: (cert: Omit<Certification, 'id' | 'created_at'>) => Promise<boolean>;
@@ -76,18 +81,25 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [projectCount, setProjectCount] = useState(0);
+  const [formationYears, setFormationYears] = useState(3);
+  const [formationYearsLoading, setFormationYearsLoading] = useState(true);
 
   // ── Fetch tout en parallèle pour la vitesse ──────────────
   useEffect(() => {
     let mounted = true;
 
     const loadAll = async () => {
-      const [profileRes, certsRes, skillsRes, timelineRes, projectsRes] = await Promise.all([
-        supabase.from('admin_profile').select('id, name, avatar, updated_at').single(),
+      const [profileRes, certsRes, skillsRes, timelineRes, projectsRes, formationRes] = await Promise.all([
+        // FIX : select('*') plutôt qu'une liste de colonnes explicite.
+        // Si une colonne (ex: ga_measurement_id) n'existe pas encore en base,
+        // une liste explicite ferait échouer TOUTE la requête (donc plus de
+        // profil affiché nulle part). select('*') ne casse jamais.
+        supabase.from('admin_profile').select('*').single(),
         supabase.from('certifications').select('*').order('sort_order', { ascending: true }),
         supabase.from('skills').select('*').order('sort_order', { ascending: true }),
         supabase.from('timeline').select('*').order('sort_order', { ascending: true }),
         supabase.from('projects').select('id', { count: 'exact', head: true }),
+        supabase.rpc('get_formation_years'),
       ]);
 
       if (!mounted) return;
@@ -107,6 +119,13 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
       setTimelineLoading(false);
 
       if (!projectsRes.error) setProjectCount(projectsRes.count ?? 0);
+
+      // Si la fonction SQL n'existe pas encore (migration non appliquée),
+      // on garde la valeur par défaut (3) sans rien casser.
+      if (!formationRes.error && typeof formationRes.data === 'number') {
+        setFormationYears(formationRes.data);
+      }
+      setFormationYearsLoading(false);
     };
 
     loadAll();
@@ -125,17 +144,30 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // ── Realtime : écoute la timeline pour recalculer le niveau BAC+X ──
+  useEffect(() => {
+    const channel = supabase
+      .channel('formation-years')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'timeline' }, async () => {
+        const { data, error } = await supabase.rpc('get_formation_years');
+        if (!error && typeof data === 'number') setFormationYears(data);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // ── Update profil ─────────────────────────────────────────
   const updateProfile = useCallback(async (updates: Partial<AdminProfile>): Promise<boolean> => {
     if (!profile) return false;
     const payload = {
       ...updates,
-      avatar: updates.avatar || DEFAULT_AVATAR,
+      // FIX : ne réinitialise plus l'avatar quand on met à jour un autre champ
+      // (ex: ga_measurement_id) sans le fournir explicitement.
+      avatar: updates.avatar ?? profile.avatar ?? DEFAULT_AVATAR,
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase.from('admin_profile').update(payload).eq('id', profile.id);
     if (error) { if (import.meta.env.DEV) console.error(error); return false; }
-    // FIX #3 : forcer un nouvel objet pour déclencher le re-render
     setProfile(() => ({ ...profile, ...payload }));
     return true;
   }, [profile]);
@@ -182,7 +214,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     if (index === -1) return false;
 
     const swapIndex = direction === 'up' ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= sorted.length) return false; // déjà en haut/bas de la liste
+    if (swapIndex < 0 || swapIndex >= sorted.length) return false;
 
     const current = sorted[index];
     const target = sorted[swapIndex];
@@ -262,6 +294,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     skills, skillsLoading,
     timeline, timelineLoading,
     projectCount,
+    formationYears, formationYearsLoading,
     updateProfile, uploadAvatar,
     addCertification, updateCertification, deleteCertification, moveCertification,
     addSkill, updateSkill, deleteSkill,

@@ -8,13 +8,15 @@ import {
 } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import Header        from './components/Header';
-import Footer        from './components/Footer';
-import Home          from './components/Home';
-import Projects      from './pages/Projects';
-import AboutPage     from './pages/AboutPage';
-import NotFoundPage  from './pages/NotFoundPage';
-import ProjectDetail from './pages/ProjectDetail';
+import Header           from './components/Header';
+import Footer           from './components/Footer';
+import Home             from './components/Home';
+import Projects         from './pages/Projects';
+import AboutPage        from './pages/AboutPage';
+import NotFoundPage     from './pages/NotFoundPage';
+import ProjectDetail    from './pages/ProjectDetail';
+import GoogleAnalytics  from './components/GoogleAnalytics';
+import MicrosoftClarity from './components/MicrosoftClarity';
 
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 
@@ -103,6 +105,8 @@ const App: React.FC = () => {
   return (
     <Router>
       <div className="flex flex-col min-h-screen bg-[var(--bg)] text-[var(--muted)]">
+        <GoogleAnalytics />
+        <MicrosoftClarity />
         <Header />
         <AnimatedRoutes />
         <Footer />
