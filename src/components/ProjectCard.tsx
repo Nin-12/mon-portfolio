@@ -125,6 +125,17 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
               >
                 <h3 className="text-lg font-bold mb-2">{project.title}</h3>
                 <p className="text-sm mb-4 line-clamp-3">{project.description}</p>
+                
+                {/* Bouton en haut */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/projects/${project.id}`);
+                    }}
+                    className="mb-4 w-full text-center text-xs font-semibold text-[var(--muted)] hover:text-[var(--accent)] transition border border-[var(--glass)] rounded-lg py-2"
+                  >
+                    Voir la page complète →
+                  </button>
 
                 <div className="flex flex-wrap gap-3 mb-5">
                   {project.images?.map((img, idx) => (
@@ -191,15 +202,6 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
                     </a>
                   )}
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/projects/${project.id}`);
-                    }}
-                    className="mt-3 w-full text-center text-xs font-semibold text-[var(--muted)] hover:text-[var(--accent)] transition border-t border-[var(--glass)] pt-3"
-                  >
-                    Voir la page complète →
-                  </button>
                 </div>
               </div>
 
