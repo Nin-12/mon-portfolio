@@ -45,12 +45,12 @@ const ProjectGrid: React.FC<ProjectGridProps> = ({ projects }) => {
       initial="hidden"
       animate="show"
     >
-      {projects.map((project) => (
+      {projects.map((project, index) => (
         <motion.div
           key={project.id}
           variants={cardVariants}
         >
-          <ProjectCard project={project} />
+          <ProjectCard project={project} isFirstCard={index === 0} />
         </motion.div>
       ))}
     </motion.div>

@@ -10,6 +10,7 @@ import { notify } from '../utils/notify';
 import RichTextEditor from './RichTextEditor';
 import DeleteProjectModal from '../hooks/DeleteProjectModal';
 import { FolderKanban } from 'lucide-react';
+import { compressImage, compressImages } from '../utils/compressImage';
 
 type LinkItem = { id: string; label: string; url: string; };
 
@@ -66,9 +67,12 @@ const AdminPanel: React.FC = () => {
 
     try {
       setSubmitting(true);
-      const thumbnailUrl  = thumbnail ? await uploadFile(thumbnail) : undefined;
+      const thumbnailUrl  = thumbnail ? await uploadFile(await compressImage(thumbnail)) : undefined;
       let imagesUrls: string[] | undefined;
-      if (images.length > 0) { imagesUrls = (await Promise.all(images.map(uploadFile))).slice(0, 6); }
+      if (images.length > 0) {
+        const compressedImages = await compressImages(images);
+        imagesUrls = (await Promise.all(compressedImages.map(uploadFile))).slice(0, 6);
+      }
       const pdfUrl = pdf ? await uploadFile(pdf) : undefined;
       const formattedLinks = cleanLinks();
 

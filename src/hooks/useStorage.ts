@@ -71,7 +71,7 @@ export const useStorage = () => {
     const { error } = await supabase
       .storage
       .from('projects-files')
-      .upload(path, file);
+      .upload(path, file, { cacheControl: '31536000' });
 
     if (error) throw error;
 

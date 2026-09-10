@@ -29,3 +29,4 @@ dist-ssr
 .env.local
 stats.html
 src/hooks/useStorages.txt
+.unlighthouse

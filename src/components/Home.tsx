@@ -1,14 +1,22 @@
 // src/components/Home.tsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, type Variants } from 'framer-motion';
-import { GraduationCap, BookOpen, Award, FolderKanban } from 'lucide-react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { GraduationCap, BookOpen, Award, FolderKanban, MousePointer } from 'lucide-react';
 
 import Hero        from './Hero';
 import ProjectGrid from './ProjectGrid';
 import SkeletonGrid from './SkeletonGrid';
 import { useStorage }      from '../hooks/useStorage';
 import { useAdminProfile } from '../hooks/useAdminProfile';
+
+const TUTORIAL_KEY = 'has_seen_flip_tutorial';
+
+/* Délais du tour guidé, tels que spécifiés */
+const LEVEL1_TO_LEVEL2_DELAY = 10000; // Niveau 1 (Hero) → Niveau 2 (Bio)
+const LEVEL2_TO_LEVEL3_DELAY = 10000; // Niveau 2 → Niveau 3 (Projets récents)
+const LEVEL3_DURATION        = 10000; // Temps passé au Niveau 3 (le didacticiel de la carte joue dedans)
+const RETURN_TO_ABOUT_DELAY  = 5000;  // Après retour au Niveau 2, avant le clic réel
 
 /* ── Variants Framer Motion ── */
 const fadeUp: Variants = {
@@ -38,7 +46,6 @@ const Home: React.FC = () => {
     skills,
     timeline, timelineLoading,
     projectCount,
-    formationYears, formationYearsLoading,
   } = useAdminProfile();
 
   /* Préfère projectCount (realtime) sinon longueur locale */
@@ -50,8 +57,8 @@ const Home: React.FC = () => {
   /* Stats dynamiques */
   const stats = useMemo(() => [
     {
-      value: formationYearsLoading ? '…' : `BAC+${formationYears}`,
-      label: 'Niveau de formation',
+      value: '3+',
+      label: 'Années de formation',
       icon: <GraduationCap size={22} />,
     },
     {
@@ -69,18 +76,162 @@ const Home: React.FC = () => {
       label: 'Certifications obtenues',
       icon: <Award size={22} />,
     },
-  ], [skills.length, projCount, certsLoading, certifications.length, formationYears, formationYearsLoading]);
+  ], [skills.length, projCount, certsLoading, certifications.length]);
+
+  /* ══════════════════════════════════════════════════════════
+     TOUR GUIDÉ — 3 niveaux + clic final réel vers "À propos"
+     Niveau 1 = Hero · Niveau 2 = Bio (avatar/nom/stats) · Niveau 3 = Projets récents
+  ══════════════════════════════════════════════════════════ */
+  const bioRef            = useRef<HTMLDivElement>(null);
+  const recentProjectsRef = useRef<HTMLDivElement>(null);
+  const ctaButtonRef      = useRef<HTMLButtonElement>(null);
+
+  const tourTimeouts   = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const tourCancelled  = useRef(false);
+
+  const [showTourMouse, setShowTourMouse]     = useState(false);
+  const [tourMousePos, setTourMousePos]       = useState({ x: 0, y: 0 }); // coordonnées fixes (px écran)
+  const [tourClickPulse, setTourClickPulse]   = useState(false);
+  const [highlightCta, setHighlightCta]       = useState(false);
+
+  const scheduleTour = useCallback((fn: () => void, delay: number) => {
+    const id = setTimeout(fn, delay);
+    tourTimeouts.current.push(id);
+  }, []);
+
+  const markTutorialSeen = () => {
+    try { localStorage.setItem(TUTORIAL_KEY, 'true'); } catch { /* ignore */ }
+  };
+
+  /* Annule tout le tour restant (utilisé par l'interruption utilisateur) */
+  const cancelTour = useCallback(() => {
+    if (tourCancelled.current) return;
+    tourCancelled.current = true;
+    tourTimeouts.current.forEach(id => clearTimeout(id));
+    tourTimeouts.current = [];
+    setShowTourMouse(false);
+    setTourClickPulse(false);
+    setHighlightCta(false);
+    markTutorialSeen();
+  }, []);
+
+
+  const playAboutClickStep = useCallback(() => {
+    if (!ctaButtonRef.current) return;
+    const rect = ctaButtonRef.current.getBoundingClientRect();
+    const targetX = rect.left + rect.width / 2;
+    const targetY = rect.top + rect.height / 2;
+
+    setTourMousePos({ x: targetX - 140, y: targetY - 90 });
+    setShowTourMouse(true);
+    setHighlightCta(true);
+
+    scheduleTour(() => setTourMousePos({ x: targetX, y: targetY }), 150);
+    scheduleTour(() => setTourClickPulse(true), 850);
+    scheduleTour(() => {
+      setTourClickPulse(false);
+      setHighlightCta(false);
+      setShowTourMouse(false);
+      markTutorialSeen();
+      ctaButtonRef.current?.click(); // clic réel → navigate('/about') via le onClick existant
+    }, 1150);
+  }, [scheduleTour]);
+
+  /* Orchestration complète du tour (une seule fois, seulement si jamais vu) */
+  useEffect(() => {
+    let alreadySeen = false;
+    try { alreadySeen = localStorage.getItem(TUTORIAL_KEY) === 'true'; } catch { /* ignore */ }
+    if (alreadySeen) return;
+
+    // Étape 1 : Niveau 1 → Niveau 2 (bio)
+    scheduleTour(() => {
+      bioRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, LEVEL1_TO_LEVEL2_DELAY);
+
+    // Étape 2 : Niveau 2 → Niveau 3 (Projets récents)
+    // Le didacticiel de la carte se déclenche seul via son propre useInView (ProjectCard.tsx)
+    scheduleTour(() => {
+      recentProjectsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, LEVEL1_TO_LEVEL2_DELAY + LEVEL2_TO_LEVEL3_DELAY);
+
+    // Étape 3 : après avoir laissé le didacticiel de la carte se jouer, retour au Niveau 2
+    scheduleTour(() => {
+      bioRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, LEVEL1_TO_LEVEL2_DELAY + LEVEL2_TO_LEVEL3_DELAY + LEVEL3_DURATION);
+
+    // Étape 4 : clic réel sur "Voir le profil complet" → navigation vers /about
+    scheduleTour(() => {
+      playAboutClickStep();
+    }, LEVEL1_TO_LEVEL2_DELAY + LEVEL2_TO_LEVEL3_DELAY + LEVEL3_DURATION + RETURN_TO_ABOUT_DELAY);
+
+    return () => { tourTimeouts.current.forEach(id => clearTimeout(id)); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Interruption globale : tout mouvement de souris, toucher ou clic réel
+     de l'utilisateur annule immédiatement le reste du tour guidé. */
+  useEffect(() => {
+    let alreadySeen = false;
+    try { alreadySeen = localStorage.getItem(TUTORIAL_KEY) === 'true'; } catch { /* ignore */ }
+    if (alreadySeen) return;
+
+    window.addEventListener('mousemove', cancelTour);
+    window.addEventListener('touchstart', cancelTour, { passive: true });
+    window.addEventListener('mousedown', cancelTour);
+
+    return () => {
+      window.removeEventListener('mousemove', cancelTour);
+      window.removeEventListener('touchstart', cancelTour);
+      window.removeEventListener('mousedown', cancelTour);
+    };
+  }, [cancelTour]);
 
   return (
     <div className="container mx-auto px-4 pb-12">
 
-      {/* ══════════ Hero statique ══════════ */}
+      {/* ══════════ Souris virtuelle du tour (étape finale, position fixe écran) ══════════ */}
+      <AnimatePresence>
+        {showTourMouse && (
+          <motion.div
+            className="fixed z-[999] pointer-events-none"
+            initial={{ opacity: 0, scale: 0.6, left: tourMousePos.x, top: tourMousePos.y }}
+            animate={{
+              opacity: 1,
+              scale: tourClickPulse ? 0.82 : 1,
+              left: tourMousePos.x,
+              top: tourMousePos.y,
+            }}
+            exit={{ opacity: 0, scale: 0.6 }}
+            transition={{
+              left: { duration: 0.5, ease: 'easeInOut' },
+              top: { duration: 0.5, ease: 'easeInOut' },
+              scale: { duration: 0.15 },
+              opacity: { duration: 0.3 },
+            }}
+            style={{ translateX: '-50%', translateY: '-50%' }}
+          >
+            {tourClickPulse && (
+              <motion.span
+                className="absolute inset-0 -m-3 rounded-full border-2 border-[var(--accent)]"
+                initial={{ scale: 0.3, opacity: 0.7 }}
+                animate={{ scale: 2.2, opacity: 0 }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+              />
+            )}
+            <MousePointer size={26} className="text-[var(--accent)] drop-shadow-[0_2px_5px_rgba(0,0,0,0.5)]" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════ Hero statique (Niveau 1) ══════════ */}
       <Hero />
 
-      {/* ══════════ BIO ══════════ */}
+      {/* ══════════ BIO (Niveau 2) ══════════ */}
       {profile && (
         <motion.div
+          ref={bioRef}
           className="mt-12"
+          style={{ scrollMarginTop: '90px' }}
           initial="hidden"
           animate="show"
           variants={stagger}
@@ -179,7 +330,7 @@ const Home: React.FC = () => {
             ))}
           </motion.div>
 
-          {/* ══════════ Bouton CTA ══════════ */}
+          {/* ══════════ Bouton CTA — cible du clic réel final ══════════ */}
            <motion.div
                     className="flex justify-center mt-10"
                     initial={{ opacity: 0, y: 16 }}
@@ -188,8 +339,13 @@ const Home: React.FC = () => {
                     transition={{ duration: 0.5 }}
                   >
                     <motion.button
+                      ref={ctaButtonRef}
                       onClick={() => navigate('/about')}
-                      className="px-8 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-semibold text-sm hover:opacity-90 transition shadow-lg shadow-purple-500/20"
+                      animate={highlightCta ? { scale: 1.06 } : { scale: 1 }}
+                      transition={{ duration: 0.25 }}
+                      className={`px-8 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-semibold text-sm hover:opacity-90 transition shadow-lg shadow-purple-500/20 ${
+                        highlightCta ? 'ring-4 ring-cyan-400/50 ring-offset-2 ring-offset-[var(--bg)]' : ''
+                      }`}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.97 }}
                     >
@@ -311,16 +467,18 @@ const Home: React.FC = () => {
         </div>
       )}
 
-      {/* ══════════ Projets récents ══════════ */}
-      <h2 className="text-2xl font-bold mt-14 mb-4 text-[var(--text)]">
-        Projets récents
-      </h2>
+      {/* ══════════ Projets récents (Niveau 3) ══════════ */}
+      <div ref={recentProjectsRef} style={{ scrollMarginTop: '90px' }}>
+        <h2 className="text-2xl font-bold mt-14 mb-4 text-[var(--text)]">
+          Projets récents
+        </h2>
 
-      {loading ? (
-        <SkeletonGrid count={3} />
-      ) : (
-        <ProjectGrid projects={preview} />
-      )}
+        {loading ? (
+          <SkeletonGrid count={3} />
+        ) : (
+          <ProjectGrid projects={preview} />
+        )}
+      </div>
     </div>
   );
 };
