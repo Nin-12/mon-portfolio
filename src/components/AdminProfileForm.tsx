@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAdminProfile } from '../hooks/useAdminProfile';
 import type { Certification, Skill, TimelineItem } from '../hooks/useAdminProfile';
 import {
-  Trash2, Award, Plus, X, Pencil, Check, ChevronUp, ChevronDown, BarChart3, Eye,
+  Trash2, Award, Plus, X, Pencil, Check, ChevronUp, ChevronDown, BarChart3, Eye, Tag as TagIcon, Quote,
   Network, Server, Shield, Code2, Globe, Wrench, Users,
 } from 'lucide-react';
 import { notify } from '../utils/notify';
@@ -36,6 +36,8 @@ const AdminProfileForm: React.FC = () => {
     addSkill, updateSkill, deleteSkill,
     timeline, timelineLoading,
     addTimeline, updateTimeline, deleteTimeline,
+    tags, tagsLoading,
+    addTag, deleteTag,
   } = useAdminProfile();
 
   /* ── Profil ── */
@@ -46,6 +48,28 @@ const AdminProfileForm: React.FC = () => {
   const fileRef               = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (profile) setName(profile.name ?? ''); }, [profile]);
+
+  /* ── Contenu de la page À propos (sous-titre, bio, citation) ── */
+  const [subtitle, setSubtitle]         = useState('');
+  const [bio, setBio]                   = useState('');
+  const [motto, setMotto]               = useState('');
+  const [mottoAuthor, setMottoAuthor]   = useState('');
+  const [contentSaving, setContentSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setSubtitle(profile.subtitle ?? '');
+      setBio(profile.bio ?? '');
+      setMotto(profile.motto ?? '');
+      setMottoAuthor(profile.motto_author ?? '');
+    }
+  }, [profile]);
+
+  /* ── Tags ── */
+  const [newTag, setNewTag]           = useState('');
+  const [tagAdding, setTagAdding]     = useState(false);
+  const [tagToDelete, setTagToDelete] = useState<{ id: string; label: string } | null>(null);
+  const [deletingTag, setDeletingTag] = useState(false);
 
   /* ── Analytics (Google Analytics + Microsoft Clarity) ── */
   const [gaId, setGaId]                       = useState('');
@@ -141,6 +165,36 @@ const AdminProfileForm: React.FC = () => {
   };
 
   const currentAvatar = preview || profile.avatar;
+
+  /* ── Contenu À propos (sous-titre / bio / citation) ── */
+  const handleSaveContent = async () => {
+    setContentSaving(true);
+    const ok = await updateProfile({
+      subtitle: subtitle.trim() || null,
+      bio: bio.trim() || null,
+      motto: motto.trim() || null,
+      motto_author: mottoAuthor.trim() || null,
+    });
+    notify(ok ? 'Contenu mis à jour ✓' : 'Erreur lors de la mise à jour', ok ? 'success' : 'error');
+    setContentSaving(false);
+  };
+
+  /* ── Tags ── */
+  const handleAddTag = async () => {
+    if (!newTag.trim()) return;
+    setTagAdding(true);
+    await addTag(newTag);
+    setNewTag('');
+    setTagAdding(false);
+  };
+
+  const handleConfirmDeleteTag = async () => {
+    if (!tagToDelete) return;
+    setDeletingTag(true);
+    await deleteTag(tagToDelete.id);
+    setDeletingTag(false);
+    setTagToDelete(null);
+  };
 
   /* ── Analytics ── */
   const handleSaveAnalytics = async () => {
@@ -283,6 +337,14 @@ const AdminProfileForm: React.FC = () => {
         onCancel={() => setTlToDelete(null)}
         onConfirm={handleConfirmDeleteTl}
       />
+      <DeleteConfirmModal
+        open={!!tagToDelete}
+        label="ce tag"
+        itemName={tagToDelete?.label}
+        loading={deletingTag}
+        onCancel={() => setTagToDelete(null)}
+        onConfirm={handleConfirmDeleteTag}
+      />
 
       {/* ══════════ Profil ══════════ */}
       <div className="p-5 border border-[var(--glass)] rounded-2xl bg-[var(--card)]">
@@ -332,6 +394,115 @@ const AdminProfileForm: React.FC = () => {
             Supprimer l&apos;avatar
           </button>
         </div>
+      </div>
+
+      {/* ══════════ Contenu de la page À propos ══════════ */}
+      <div className="p-5 border border-[var(--glass)] rounded-2xl bg-[var(--card)]">
+        <h3 className="text-lg font-bold mb-2 text-[var(--text)] flex items-center gap-2">
+          <Quote size={20} className="text-cyan-400" /> Contenu de la page À propos
+        </h3>
+        <p className="text-xs text-[var(--muted)] mb-4">
+          Sous-titre, présentation et citation personnelle affichés sur ton profil public.
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="text-xs text-[var(--muted)] mb-1 block">Sous-titre</label>
+            <input
+              className="admin-input w-full"
+              placeholder="Ex : Étudiant en Master 1 · Systèmes, Réseaux & Sécurité"
+              value={subtitle}
+              onChange={e => setSubtitle(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-[var(--muted)] mb-1 block">Présentation (bio)</label>
+            <textarea
+              className="admin-input w-full"
+              rows={4}
+              placeholder="Le paragraphe qui te présente..."
+              value={bio}
+              onChange={e => setBio(e.target.value)}
+            />
+          </div>
+
+          <div className="pt-2 border-t border-[var(--glass)]">
+            <label className="text-xs text-[var(--muted)] mb-1 block">Citation personnelle</label>
+            <textarea
+              className="admin-input w-full mb-2"
+              rows={3}
+              placeholder="Ex : Le talent n'est pas un cadeau, c'est une responsabilité..."
+              value={motto}
+              onChange={e => setMotto(e.target.value)}
+            />
+            <input
+              className="admin-input w-full"
+              placeholder="Auteur (optionnel)"
+              value={mottoAuthor}
+              onChange={e => setMottoAuthor(e.target.value)}
+            />
+          </div>
+
+          <button
+            onClick={handleSaveContent}
+            disabled={contentSaving}
+            className="bg-[var(--accent)] text-[#061019] font-bold px-6 py-2 rounded-lg hover:bg-yellow-500 transition disabled:opacity-60 self-start"
+          >
+            {contentSaving ? 'Sauvegarde…' : 'Sauvegarder le contenu'}
+          </button>
+        </div>
+      </div>
+
+      {/* ══════════ Tags / badges ══════════ */}
+      <div className="p-5 border border-[var(--glass)] rounded-2xl bg-[var(--card)]">
+        <h3 className="text-lg font-bold mb-2 text-[var(--text)] flex items-center gap-2">
+          <TagIcon size={20} className="text-cyan-400" /> Tags <span className="text-sm font-normal text-[var(--muted)]">({tags.length})</span>
+        </h3>
+        <p className="text-xs text-[var(--muted)] mb-4">
+          Les petits badges affichés sous ta bio (ex : Cybersécurité, Linux, Python...).
+        </p>
+
+        <div className="flex gap-2 mb-4">
+          <input
+            className="admin-input flex-1"
+            placeholder="Nouveau tag (ex : Docker)"
+            value={newTag}
+            onChange={e => setNewTag(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAddTag(); }}
+          />
+          <button
+            onClick={handleAddTag}
+            disabled={tagAdding || !newTag.trim()}
+            className="flex items-center gap-2 bg-[var(--accent)] text-[#061019] font-bold px-4 rounded-lg hover:bg-yellow-500 transition disabled:opacity-50"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+
+        {tagsLoading ? (
+          <p className="text-sm text-[var(--muted)]">Chargement…</p>
+        ) : tags.length === 0 ? (
+          <p className="text-sm text-[var(--muted)] italic">Aucun tag pour l&apos;instant.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {tags.map(tag => (
+              <span
+                key={tag.id}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border border-[var(--glass)] bg-[var(--bg)] text-[var(--text)]"
+              >
+                {tag.label}
+                <button
+                  onClick={() => setTagToDelete({ id: tag.id, label: tag.label })}
+                  className="text-[var(--muted)] hover:text-red-400 transition"
+                  aria-label={`Supprimer ${tag.label}`}
+                >
+                  <X size={13} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ══════════ Analytics (Google Analytics + Microsoft Clarity) ══════════ */}

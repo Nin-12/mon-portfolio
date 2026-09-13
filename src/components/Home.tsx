@@ -45,7 +45,9 @@ const Home: React.FC = () => {
     certifications, certsLoading,
     skills,
     timeline, timelineLoading,
+    tags, tagsLoading,
     projectCount,
+    formationYears, formationYearsLoading,
   } = useAdminProfile();
 
   /* Préfère projectCount (realtime) sinon longueur locale */
@@ -57,8 +59,8 @@ const Home: React.FC = () => {
   /* Stats dynamiques */
   const stats = useMemo(() => [
     {
-      value: '3+',
-      label: 'Années de formation',
+      value: formationYearsLoading ? '…' : `BAC+${formationYears}`,
+      label: 'Niveau de formation',
       icon: <GraduationCap size={22} />,
     },
     {
@@ -76,7 +78,7 @@ const Home: React.FC = () => {
       label: 'Certifications obtenues',
       icon: <Award size={22} />,
     },
-  ], [skills.length, projCount, certsLoading, certifications.length]);
+  ], [skills.length, projCount, certsLoading, certifications.length, formationYears, formationYearsLoading]);
 
   /* ══════════════════════════════════════════════════════════
      TOUR GUIDÉ — 3 niveaux + clic final réel vers "À propos"
@@ -115,7 +117,10 @@ const Home: React.FC = () => {
     markTutorialSeen();
   }, []);
 
-
+  /* Étape finale : déplace une souris virtuelle vers le bouton
+     "Voir le profil complet →" puis déclenche un VRAI clic dessus
+     (navigation effective vers /about), contrairement aux autres
+     surbrillances du parcours qui ne font que simuler. */
   const playAboutClickStep = useCallback(() => {
     if (!ctaButtonRef.current) return;
     const rect = ctaButtonRef.current.getBoundingClientRect();
@@ -271,36 +276,55 @@ const Home: React.FC = () => {
                 {profile.name ?? 'Administrateur'}
               </motion.h2>
 
-              <motion.p
-                className="text-[var(--muted)] text-sm font-medium tracking-widest uppercase"
-                variants={fadeUp}
-              >
-                Étudiant en Master 1 · Systèmes, Réseaux & Sécurité
-              </motion.p>
+              {profile.subtitle && (
+                <motion.p
+                  className="text-[var(--muted)] text-sm font-medium tracking-widest uppercase"
+                  variants={fadeUp}
+                >
+                  {profile.subtitle}
+                </motion.p>
+              )}
 
-              <motion.p
-                className="text-base leading-relaxed text-[var(--muted)] max-w-xl"
-                variants={fadeUp}
-              >
-                Passionné par la cybersécurité offensive et défensive,
-                je m&apos;intéresse particulièrement à la protection des infrastructures
-                informatiques, à l&apos;administration des systèmes et à la sécurisation
-                des environnements Linux et Windows.
-              </motion.p>
+              {profile.bio && (
+                <motion.p
+                  className="text-base leading-relaxed text-[var(--muted)] max-w-xl"
+                  variants={fadeUp}
+                >
+                  {profile.bio}
+                </motion.p>
+              )}
+
+              {profile.motto && (
+                <motion.blockquote
+                  className="relative pl-6 italic text-[var(--muted)] max-w-xl"
+                  variants={fadeUp}
+                >
+                  <span className="absolute left-0 top-1 bottom-14 w-0.5 bg-purple-400/60 rounded-full" />
+                  <span className="absolute -left-1 -top-2 text-4xl text-purple-400/30 font-serif select-none">"</span>
+                  <p className="leading-snug">{profile.motto}</p>
+                  {profile.motto_author && (
+                    <footer className="mt-3 text-sm not-italic leading-none text-[var(--text)] font-semibold">
+                      — {profile.motto_author}
+                    </footer>
+                  )}
+                </motion.blockquote>
+              )}
 
               {/* Badges */}
-              <motion.div className="flex flex-wrap gap-2 mt-1" variants={staggerFast}>
-                {['Cybersécurité', 'Linux', 'Réseaux', 'Python', 'React', 'Active Directory'].map(tag => (
-                  <motion.span
-                    key={tag}
-                    className="px-3 py-1 text-xs rounded-full border border-[var(--glass)] bg-white/5 backdrop-blur text-[var(--muted)] hover:border-purple-400/50 hover:text-purple-300 transition-colors duration-200 cursor-default"
-                    variants={fadeUp}
-                    whileHover={{ scale: 1.08 }}
-                  >
-                    {tag}
-                  </motion.span>
-                ))}
-              </motion.div>
+              {!tagsLoading && tags.length > 0 && (
+                <motion.div className="flex flex-wrap gap-2 -mt-5" variants={staggerFast}>
+                  {tags.map(tag => (
+                    <motion.span
+                      key={tag.id}
+                      className="px-3 py-1 text-xs rounded-full border border-[var(--glass)] bg-white/5 backdrop-blur text-[var(--muted)] hover:border-purple-400/50 hover:text-purple-300 transition-colors duration-200 cursor-default"
+                      variants={fadeUp}
+                      whileHover={{ scale: 1.08 }}
+                    >
+                      {tag.label}
+                    </motion.span>
+                  ))}
+                </motion.div>
+              )}
             </div>
           </motion.div>
 

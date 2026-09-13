@@ -6,6 +6,10 @@ export interface AdminProfile {
   id: string;
   name: string | null;
   avatar: string;
+  subtitle: string | null;
+  bio: string | null;
+  motto: string | null;
+  motto_author: string | null;
   ga_measurement_id: string | null;
   clarity_project_id: string | null;
   updated_at: string | null;
@@ -41,6 +45,12 @@ export interface TimelineItem {
   bac_level?: number | null;
 }
 
+export interface Tag {
+  id: string;
+  label: string;
+  sort_order: number;
+}
+
 export const DEFAULT_AVATAR =
   'https://xnrvmdellsdeyiuxvsuv.supabase.co/storage/v1/object/public/admin-avatar/admin-avatar/avatar-1765747463893';
 
@@ -53,6 +63,8 @@ interface UseAdminProfileReturn {
   skillsLoading: boolean;
   timeline: TimelineItem[];
   timelineLoading: boolean;
+  tags: Tag[];
+  tagsLoading: boolean;
   projectCount: number;
   formationYears: number;
   formationYearsLoading: boolean;
@@ -68,6 +80,8 @@ interface UseAdminProfileReturn {
   addTimeline: (item: Omit<TimelineItem, 'id'>) => Promise<boolean>;
   updateTimeline: (id: string, updates: Partial<Omit<TimelineItem, 'id'>>) => Promise<boolean>;
   deleteTimeline: (id: string) => Promise<boolean>;
+  addTag: (label: string) => Promise<boolean>;
+  deleteTag: (id: string) => Promise<boolean>;
   DEFAULT_AVATAR: string;
 }
 
@@ -80,6 +94,8 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(true);
   const [projectCount, setProjectCount] = useState(0);
   const [formationYears, setFormationYears] = useState(3);
   const [formationYearsLoading, setFormationYearsLoading] = useState(true);
@@ -89,7 +105,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     let mounted = true;
 
     const loadAll = async () => {
-      const [profileRes, certsRes, skillsRes, timelineRes, projectsRes, formationRes] = await Promise.all([
+      const [profileRes, certsRes, skillsRes, timelineRes, tagsRes, projectsRes, formationRes] = await Promise.all([
         // FIX : select('*') plutôt qu'une liste de colonnes explicite.
         // Si une colonne (ex: ga_measurement_id) n'existe pas encore en base,
         // une liste explicite ferait échouer TOUTE la requête (donc plus de
@@ -98,6 +114,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
         supabase.from('certifications').select('*').order('sort_order', { ascending: true }),
         supabase.from('skills').select('*').order('sort_order', { ascending: true }),
         supabase.from('timeline').select('*').order('sort_order', { ascending: true }),
+        supabase.from('tags').select('*').order('sort_order', { ascending: true }),
         supabase.from('projects').select('id', { count: 'exact', head: true }),
         supabase.rpc('get_formation_years'),
       ]);
@@ -117,6 +134,11 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
 
       if (!timelineRes.error && timelineRes.data) setTimeline(timelineRes.data);
       setTimelineLoading(false);
+
+      // Si la table "tags" n'existe pas encore (migration non appliquée),
+      // on garde un tableau vide sans rien casser ailleurs.
+      if (!tagsRes.error && tagsRes.data) setTags(tagsRes.data);
+      setTagsLoading(false);
 
       if (!projectsRes.error) setProjectCount(projectsRes.count ?? 0);
 
@@ -162,7 +184,7 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     const payload = {
       ...updates,
       // FIX : ne réinitialise plus l'avatar quand on met à jour un autre champ
-      // (ex: ga_measurement_id) sans le fournir explicitement.
+      // (ex: ga_measurement_id, subtitle, bio...) sans le fournir explicitement.
       avatar: updates.avatar ?? profile.avatar ?? DEFAULT_AVATAR,
       updated_at: new Date().toISOString(),
     };
@@ -288,17 +310,42 @@ export const useAdminProfile = (): UseAdminProfileReturn => {
     return true;
   }, []);
 
+  // ── CRUD Tags ──────────────────────────────────────────────
+  const addTag = useCallback(async (label: string): Promise<boolean> => {
+    const trimmed = label.trim();
+    if (!trimmed) return false;
+    const { data, error } = await supabase
+      .from('tags')
+      .insert({ label: trimmed, sort_order: tags.length })
+      .select()
+      .single();
+    if (error) { notify('Erreur ajout tag', 'error'); return false; }
+    setTags(prev => [...prev, data].sort((a, b) => a.sort_order - b.sort_order));
+    notify('Tag ajouté ✓', 'success');
+    return true;
+  }, [tags.length]);
+
+  const deleteTag = useCallback(async (id: string): Promise<boolean> => {
+    const { error } = await supabase.from('tags').delete().eq('id', id);
+    if (error) { notify('Erreur suppression', 'error'); return false; }
+    setTags(prev => prev.filter(t => t.id !== id));
+    notify('Tag supprimé', 'info');
+    return true;
+  }, []);
+
   return {
     profile, loading,
     certifications, certsLoading,
     skills, skillsLoading,
     timeline, timelineLoading,
+    tags, tagsLoading,
     projectCount,
     formationYears, formationYearsLoading,
     updateProfile, uploadAvatar,
     addCertification, updateCertification, deleteCertification, moveCertification,
     addSkill, updateSkill, deleteSkill,
     addTimeline, updateTimeline, deleteTimeline,
+    addTag, deleteTag,
     DEFAULT_AVATAR,
   };
 };
